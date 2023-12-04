@@ -9,20 +9,18 @@ import (
 	
 	"github.com/go-redis/redis/v8"
 	
-	"github.com/creamsensation/cp/internal/filesystem"
-	"github.com/creamsensation/cp/internal/handler"
-	"quirk"
-	
-	"assetter"
+	"github.com/creamsensation/assetter"
 	"github.com/creamsensation/cp/internal/cache/memory"
 	"github.com/creamsensation/cp/internal/config"
 	"github.com/creamsensation/cp/internal/connect"
 	"github.com/creamsensation/cp/internal/constant/cacheAdapter"
+	"github.com/creamsensation/cp/internal/filesystem"
+	"github.com/creamsensation/cp/internal/handler"
 	"github.com/creamsensation/cp/internal/route"
 	"github.com/creamsensation/cp/internal/style"
 	"github.com/creamsensation/cp/internal/translator"
-	
-	"devtool"
+	"github.com/creamsensation/devtool"
+	"github.com/creamsensation/quirk"
 )
 
 type Core interface {

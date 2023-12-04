@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 	
-	. "hx"
+	. "github.com/creamsensation/hx"
 )
 
 type Response interface {

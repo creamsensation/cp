@@ -9,7 +9,7 @@ import (
 	
 	"github.com/creamsensation/cp/internal/constant/cookieName"
 	"github.com/creamsensation/cp/internal/constant/naming"
-	"quirk"
+	"github.com/creamsensation/quirk"
 )
 
 type Auth interface {

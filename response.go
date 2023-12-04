@@ -8,7 +8,7 @@ import (
 	"github.com/creamsensation/cp/internal/responder/hx"
 	"github.com/creamsensation/cp/internal/result"
 	"github.com/creamsensation/gox"
-	htmx "hx"
+	htmx "github.com/creamsensation/hx"
 )
 
 type Result interface{}

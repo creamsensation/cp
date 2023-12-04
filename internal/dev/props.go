@@ -1,8 +1,8 @@
 package dev
 
 import (
-	"devtool"
 	"github.com/creamsensation/cp/internal/session"
+	"github.com/creamsensation/devtool"
 )
 
 type ViewProps struct {

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"regexp"
 	
-	"hx"
+	"github.com/creamsensation/hx"
 )
 
 type Is interface {

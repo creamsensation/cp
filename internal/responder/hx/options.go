@@ -1,7 +1,7 @@
 package hx
 
 import (
-	. "hx"
+	. "github.com/creamsensation/hx"
 )
 
 type Options interface {

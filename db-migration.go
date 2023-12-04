@@ -5,7 +5,7 @@ import (
 	
 	"github.com/creamsensation/cp/internal/config"
 	"github.com/creamsensation/cp/internal/connect"
-	"quirk"
+	"github.com/creamsensation/quirk"
 )
 
 var (

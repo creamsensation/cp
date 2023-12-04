@@ -9,7 +9,7 @@ import (
 	
 	"github.com/matthewhartstonge/argon2"
 	
-	"quirk"
+	"github.com/creamsensation/quirk"
 )
 
 type UserManager interface {

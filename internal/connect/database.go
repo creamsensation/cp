@@ -3,11 +3,10 @@ package connect
 import (
 	"fmt"
 	
-	"quirk"
-	
 	"github.com/creamsensation/cp/env"
 	"github.com/creamsensation/cp/internal/config"
 	"github.com/creamsensation/cp/internal/style"
+	"github.com/creamsensation/quirk"
 )
 
 func Database(item config.Database) *quirk.DB {

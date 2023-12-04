@@ -3,10 +3,10 @@ package dev
 import (
 	"time"
 	
-	"devtool"
 	"github.com/creamsensation/cp/env"
 	"github.com/creamsensation/cp/internal/route"
 	"github.com/creamsensation/cp/internal/session"
+	"github.com/creamsensation/devtool"
 	
 	"github.com/creamsensation/gox"
 )

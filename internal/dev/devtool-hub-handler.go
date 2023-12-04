@@ -3,8 +3,8 @@ package dev
 import (
 	"net/http"
 	
-	"devtool"
 	"github.com/creamsensation/cp/env"
+	"github.com/creamsensation/devtool"
 )
 
 func CreateDevtoolHubConnectionHandler(

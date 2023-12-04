@@ -5,7 +5,7 @@ import (
 	
 	"github.com/creamsensation/form"
 	"github.com/creamsensation/gox"
-	"hx"
+	"github.com/creamsensation/hx"
 )
 
 type HxHandle interface {

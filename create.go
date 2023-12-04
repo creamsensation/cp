@@ -14,7 +14,7 @@ import (
 	"github.com/creamsensation/cp/internal/route"
 	"github.com/creamsensation/form"
 	"github.com/creamsensation/gox"
-	"hx"
+	"github.com/creamsensation/hx"
 )
 
 type Create interface {

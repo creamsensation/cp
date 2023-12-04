@@ -7,7 +7,7 @@ import (
 	
 	"github.com/creamsensation/cp/internal/filesystem"
 	"github.com/creamsensation/cp/internal/util"
-	"quirk"
+	"github.com/creamsensation/quirk"
 	
 	"github.com/creamsensation/cp/env"
 	"github.com/creamsensation/cp/internal/assets"
