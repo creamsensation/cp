@@ -278,6 +278,9 @@ func (l *lifecycle) validateCanonization() bool {
 	for k, p := range l.control.route.VarsPlaceholders {
 		path = strings.Replace(path, p, Var[string](l.control, k), 1)
 	}
+	if len(path) == 0 {
+		return true
+	}
 	encodedQuery := l.control.Request().Raw().URL.Query().Encode()
 	if l.control.Request().Path() != path && (len(encodedQuery) == 0 || encodedQuery == "?") {
 		l.setHttpRedirect(path, http.StatusMovedPermanently)

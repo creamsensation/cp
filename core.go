@@ -150,7 +150,9 @@ func (c *core) onInit() {
 			}
 		}
 	}
-	go c.translator.Prepare()
+	if c.isLocalized() {
+		go c.translator.Prepare()
+	}
 	go c.assetter.Build()
 	go c.createCacheConnection()
 	go c.createDatabasesConnections()
@@ -199,4 +201,13 @@ func (c *core) createFilesystem() {
 	case filesystem.Cloud:
 		c.fs.Client = connect.CloudFilesystem(cfg)
 	}
+}
+
+func (c *core) isLocalized() bool {
+	for _, l := range c.config.Languages {
+		if l.Enabled {
+			return true
+		}
+	}
+	return false
 }
