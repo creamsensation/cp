@@ -3,6 +3,7 @@ package cp
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	
 	"github.com/creamsensation/cp/env"
 	"github.com/creamsensation/cp/internal/responder/hx"
@@ -32,21 +33,21 @@ type response struct {
 }
 
 func (r response) Error(err error) Result {
-	if *r.control.statusCode == 0 {
+	if r.control.main != nil || *r.control.statusCode == 0 {
 		*r.control.statusCode = http.StatusInternalServerError
 	}
 	return result.CreateError(createErrorPage(r.control, *r.control.statusCode, err), *r.control.statusCode, err)
 }
 
 func (r response) File(name string, data []byte) Result {
-	if *r.control.statusCode == 0 {
+	if r.control.main != nil || *r.control.statusCode == 0 {
 		*r.control.statusCode = http.StatusOK
 	}
 	return result.CreateStream(name, data, *r.control.statusCode)
 }
 
 func (r response) Json(value any) Result {
-	if *r.control.statusCode == 0 {
+	if r.control.main != nil || *r.control.statusCode == 0 {
 		*r.control.statusCode = http.StatusOK
 	}
 	valueBytes, err := json.Marshal(value)
@@ -71,11 +72,14 @@ func (r response) Raw() http.ResponseWriter {
 }
 
 func (r response) Redirect(name string) Result {
-	if *r.control.statusCode == 0 {
+	if r.control.main != nil || *r.control.statusCode == 0 {
 		*r.control.statusCode = http.StatusFound
 	}
 	r.control.notifier.store()
-	return result.CreateRedirect(r.control.Create().Link(name), *r.control.statusCode)
+	if strings.HasPrefix(name, "/") {
+		return result.CreateRedirect(name, *r.control.statusCode)
+	}
+	return result.CreateRedirect(r.control.Link(name), *r.control.statusCode)
 }
 
 func (r response) Refresh() Result {
@@ -83,7 +87,7 @@ func (r response) Refresh() Result {
 }
 
 func (r response) Render(nodes ...gox.Node) Result {
-	if *r.control.statusCode == 0 {
+	if r.control.main != nil || *r.control.statusCode == 0 {
 		*r.control.statusCode = http.StatusOK
 	}
 	if r.shouldUseHx() {
@@ -108,7 +112,7 @@ func (r response) Status(statusCode int) Response {
 }
 
 func (r response) Text(text string) Result {
-	if *r.control.statusCode == 0 {
+	if r.control.main != nil || *r.control.statusCode == 0 {
 		*r.control.statusCode = http.StatusOK
 	}
 	return result.CreateText(text, *r.control.statusCode)

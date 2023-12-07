@@ -3,6 +3,7 @@ package cp
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 	
 	"github.com/creamsensation/cp/internal/filesystem"
@@ -31,9 +32,12 @@ type Control interface {
 	Csrf() Csrf
 	DB(name ...string) *quirk.Quirk
 	Dev() dev.Dev
+	Email() Email
 	Error() ErrorHandler
 	Event() Event
 	File() filesystem.Filesystem
+	Generate() Generator
+	Link(name string, arg ...Map) string
 	Notifications() Notifier
 	Handle() Handle
 	Page() page.Page
@@ -146,6 +150,10 @@ func (c *control) Dev() dev.Dev {
 	return c.dev
 }
 
+func (c *control) Email() Email {
+	return &email{control: c}
+}
+
 func (c *control) Error() ErrorHandler {
 	return createErrorHandler(c)
 }
@@ -165,6 +173,17 @@ func (c *control) File() filesystem.Filesystem {
 		cfg.StorageName,
 		c.core.fs.Client,
 	)
+}
+
+func (c *control) Generate() Generator {
+	return &generator{control: c}
+}
+
+func (c *control) Link(name string, arg ...Map) string {
+	if c.component != nil && IsFirstCharUpper(name[strings.LastIndex(name, linkLevelDivider)+1:]) {
+		return c.Generate().Link().Action(name, arg...)
+	}
+	return c.Generate().Link().Name(name, arg...)
 }
 
 func (c *control) Main() Control {

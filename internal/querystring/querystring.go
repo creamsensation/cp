@@ -11,14 +11,16 @@ type QueryString interface {
 	Prefix(prefix string) QueryString
 	Decode()
 	Encode() string
+	Override(override map[string]any) QueryString
 }
 
 type querystring struct {
-	value   any
-	rv      reflect.Value
-	request *http.Request
-	ignore  []string
-	prefix  string
+	value    any
+	rv       reflect.Value
+	request  *http.Request
+	override map[string]any
+	ignore   []string
+	prefix   string
 }
 
 const (
@@ -47,11 +49,16 @@ func (q *querystring) Request(req *http.Request) QueryString {
 	return q
 }
 
+func (q *querystring) Override(override map[string]any) QueryString {
+	q.override = override
+	return q
+}
+
 func (q *querystring) Decode() {
 	decoder{q}.process()
 }
 
 func (q *querystring) Encode() string {
 	e := &encoder{q}
-	return e.process()
+	return e.process(q.override)
 }

@@ -19,11 +19,11 @@ type Request interface {
 	Lang() string
 	Method() string
 	Path() string
-	Query(key string) string
+	Query(key string, defaultValue ...string) string
 	Raw() *http.Request
 	Route() string
 	UserAgent() string
-	Var(key string) string
+	Var(key string, defaultValue ...string) string
 }
 
 type request struct {
@@ -80,7 +80,7 @@ func (r request) Protocol() string {
 	return "https"
 }
 
-func (r request) Query(key string) string {
+func (r request) Query(key string, defaultValue ...string) string {
 	return Query[string](r.control, key)
 }
 
@@ -96,6 +96,6 @@ func (r request) UserAgent() string {
 	return r.request.Header.Get(header.UserAgent)
 }
 
-func (r request) Var(key string) string {
+func (r request) Var(key string, defaultValue ...string) string {
 	return Var[string](r.control, key)
 }

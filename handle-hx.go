@@ -23,7 +23,7 @@ func (h hxHandle) Click(name string) gox.Node {
 	h.control.Response().Hx().Update(id)
 	return gox.Fragment(
 		gox.Id(id),
-		hx.Post(h.control.Create().Link(name)),
+		hx.Post(h.control.Link(name)),
 		hx.Trigger("click"),
 		gox.If(
 			h.control.config.Security.Csrf.Enabled,
@@ -37,7 +37,7 @@ func (h hxHandle) Submit(name string) gox.Node {
 	h.control.Response().Hx().Update(id)
 	return gox.Fragment(
 		gox.Id(id),
-		hx.Post(h.control.Create().Link(name)),
+		hx.Post(h.control.Link(name)),
 		hx.Trigger("submit"),
 	)
 }

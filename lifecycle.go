@@ -139,7 +139,7 @@ func (l *lifecycle) runFirewall() bool {
 	isAuth := l.control.Auth().Session().Exists()
 	for _, f := range firewalls {
 		if f.Invert && isAuth {
-			l.setHttpRedirect(l.control.Create().Link(f.RedirectRoute), http.StatusFound)
+			l.setHttpRedirect(l.control.Generate().Link().Name(f.RedirectRoute), http.StatusFound)
 			return false
 		}
 	}
@@ -163,7 +163,7 @@ func (l *lifecycle) runFirewall() bool {
 			}
 		}
 		if !valid && len(f.RedirectRoute) > 0 {
-			l.setHttpRedirect(l.control.Create().Link(f.RedirectRoute), http.StatusFound)
+			l.setHttpRedirect(l.control.Generate().Link().Name(f.RedirectRoute), http.StatusFound)
 			return false
 		}
 		if !valid && len(f.RedirectRoute) == 0 {

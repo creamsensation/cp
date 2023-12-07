@@ -14,7 +14,7 @@ type encoder struct {
 	*querystring
 }
 
-func (r *encoder) process() string {
+func (r *encoder) process(override map[string]any) string {
 	rv := r.rv
 	result := make([]string, 0)
 	if rv.Type().Kind() == reflect.Ptr {
@@ -32,6 +32,10 @@ func (r *encoder) process() string {
 		key := strcase.ToKebab(fn)
 		if len(r.prefix) > 0 {
 			key = r.prefix + prefixDivider + key
+		}
+		if v, ok := override[key]; ok {
+			result = append(result, fmt.Sprintf("%s=%v", key, v))
+			continue
 		}
 		switch fv.Kind() {
 		case reflect.Array, reflect.Slice:
