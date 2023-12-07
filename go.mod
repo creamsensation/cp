@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/andybalholm/brotli v1.0.6
 	github.com/charmbracelet/lipgloss v0.9.1
-	github.com/creamsensation/form v0.1.0
+	github.com/creamsensation/form v0.1.1
 	github.com/creamsensation/gox v0.1.2
 	github.com/dchest/uniuri v1.2.0
 	github.com/go-redis/redis/v8 v8.11.5
