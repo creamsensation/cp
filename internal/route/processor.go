@@ -184,7 +184,7 @@ func preparePath(b *Builder, path string) {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
-	if strings.HasSuffix(path, "/") {
+	if strings.HasSuffix(path, "/") && path != "/" {
 		path = strings.TrimSuffix(path, "/")
 	}
 	b.Path = path

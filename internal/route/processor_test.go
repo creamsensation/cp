@@ -54,7 +54,6 @@ func TestProcessor(t *testing.T) {
 			}
 		},
 	)
-	
 	t.Run(
 		"localized route", func(t *testing.T) {
 			paths := map[string]any{"cs": "clanek", "en": "article"}
@@ -77,6 +76,57 @@ func TestProcessor(t *testing.T) {
 				)
 				assert.Equal(t, fmt.Sprintf("/{lang:%s}/%s", langCode, paths[langCode]), b.LocalizedRoute[langCode].Path)
 				assert.Equal(t, methods, b.LocalizedRoute[langCode].Method)
+			}
+		},
+	)
+	t.Run(
+		"grouped localized route", func(t *testing.T) {
+			paths := map[string]any{"cs": "clanek", "en": "article"}
+			pathDetail := "{id:[0-9]+}"
+			methods := []string{http.MethodGet, http.MethodPost}
+			b := CreateBuilder(
+				CreateConfig(
+					ConfigPath, pathConfig{
+						method: methods,
+						path:   paths,
+					},
+				),
+			)
+			b.Group(
+				CreateBuilder(
+					CreateConfig(
+						ConfigPath, pathConfig{
+							method: methods,
+							path:   pathDetail,
+						},
+					),
+					CreateConfig(ConfigLocalize, true),
+				),
+			)
+			Process(b, nil, testsLangs, cfg.Router{})
+			for langCode := range testsLangs {
+				_, ok := b.LocalizedRoute[langCode]
+				assert.Equal(t, true, ok)
+				assert.Equal(t, true, b.LocalizedRoute[langCode].Ok)
+				assert.Equal(
+					t, fmt.Sprintf(`^/%s/%s/?$`, langCode, paths[langCode]), b.LocalizedRoute[langCode].Matcher.String(),
+				)
+				assert.Equal(t, fmt.Sprintf("/{lang:%s}/%s", langCode, paths[langCode]), b.LocalizedRoute[langCode].Path)
+				assert.Equal(t, methods, b.LocalizedRoute[langCode].Method)
+			}
+			for _, item := range b.Subroutes {
+				for langCode := range testsLangs {
+					_, ok := b.LocalizedRoute[langCode]
+					assert.Equal(t, true, ok)
+				}
+				for langCode, lr := range item.LocalizedRoute {
+					assert.Equal(t, true, lr.Ok)
+					assert.Equal(
+						t, fmt.Sprintf(`^/%s/%s/[0-9]+/?$`, langCode, paths[langCode]), lr.Matcher.String(),
+					)
+					assert.Equal(t, fmt.Sprintf("/{lang:%s}/%s/{id:[0-9]+}", langCode, paths[langCode]), lr.Path)
+					assert.Equal(t, methods, lr.Method)
+				}
 			}
 		},
 	)

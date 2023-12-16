@@ -42,7 +42,7 @@ func (u *ui) Notification(fn uiNotificationFn) Ui {
 }
 
 func createErrorPage(c *control, statusCode int, err error) string {
-	if c.core.ui.errorPage == nil {
+	if c.core.ui == nil || c.core.ui.errorPage == nil {
 		return ""
 	}
 	return gox.Render(

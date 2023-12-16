@@ -46,12 +46,16 @@ func (r *router) onInit() {
 	r.prepareLocalizedPathMatcher()
 }
 
-func (r *router) createServerHandler() *serverHandler {
+func (r *router) createHandler() *serverHandler {
+	r.prepareRoutes()
+	return createServerHandler(r.core, r.routes)
+}
+
+func (r *router) prepareRoutes() {
 	if r.localized {
 		r.localizedRoutes = prepareLocalizedRoutes(r.builders, r.firewalls)
 	}
 	r.routes = prepareRoutes(r.builders, r.firewalls)
-	return createServerHandler(r.core, r.routes)
 }
 
 func (r *router) prepareFirewalls() {

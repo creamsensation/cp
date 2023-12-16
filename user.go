@@ -61,6 +61,8 @@ type User struct {
 	LastActivity time.Time      `json:"lastActivity"`
 	CreatedAt    time.Time      `json:"createdAt"`
 	UpdatedAt    time.Time      `json:"updatedAt"`
+	
+	columns []string
 }
 
 const (
@@ -109,18 +111,19 @@ func (u *userManager) Get(w UserWriter) {
 func (u *userManager) Create(r UserReader) int {
 	u.readData(r)
 	columns, placeholders := u.insertValues()
-	var result User
+	var id int
 	u.Q(fmt.Sprintf(`INSERT INTO %s`, usersTable)).
 		Q(fmt.Sprintf(`(%s)`, columns)).
-		Q(fmt.Sprintf(`VALUES (%s)`, placeholders), u.args()).
-		MustExec(&result)
-	return result.Id
+		Q(fmt.Sprintf(`VALUES (%s)`, placeholders), u.args()...).
+		Q(`RETURNING id`).
+		MustExec(&id)
+	return id
 }
 
 func (u *userManager) Update(r UserReader) {
 	u.readData(r)
 	u.Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
-		Q(fmt.Sprintf(`SET %s`, u.updateValues()), u.args()).
+		Q(fmt.Sprintf(`SET %s`, u.updateValues()), u.args()...).
 		If(u.id > 0, `WHERE id = ?`, u.id).
 		If(u.id == 0, `WHERE email ?`, u.email).
 		MustExec()
@@ -185,8 +188,10 @@ func (u *userManager) insertValues() (string, string) {
 	}
 	switch u.driverName {
 	case quirk.Postgres:
-		columns = append(columns, quirk.Vectors)
-		placeholders = append(placeholders, ":"+quirk.Vectors)
+		if len(u.data) > 0 {
+			columns = append(columns, quirk.Vectors)
+			placeholders = append(placeholders, ":"+quirk.Vectors)
+		}
 	}
 	columns = append(columns, UserColumnLastActivity)
 	placeholders = append(placeholders, quirk.CurrentTimestamp)
@@ -199,7 +204,10 @@ func (u *userManager) insertValues() (string, string) {
 	return strings.Join(columns, ","), strings.Join(placeholders, ",")
 }
 
-func (u *userManager) args() map[string]any {
+func (u *userManager) args() []any {
+	if len(u.data) == 0 {
+		return []any{}
+	}
 	result := u.data
 	vectors := make([]any, 0)
 	for name, v := range u.data {
@@ -210,9 +218,11 @@ func (u *userManager) args() map[string]any {
 	}
 	switch u.driverName {
 	case quirk.Postgres:
-		result[quirk.Vectors] = quirk.CreateTsVectors(vectors...)
+		if len(vectors) > 0 {
+			result[quirk.Vectors] = quirk.CreateTsVectors(vectors...)
+		}
 	}
-	return result
+	return []any{result}
 }
 
 func (u *userManager) updateValues() string {
@@ -234,7 +244,9 @@ func (u *userManager) updateValues() string {
 			}
 			vectors = append(vectors, v)
 		}
-		result = append(result, fmt.Sprintf("%s = %v", quirk.Vectors, quirk.CreateTsVectors(vectors...).Value))
+		if len(vectors) > 0 {
+			result = append(result, fmt.Sprintf("%s = %v", quirk.Vectors, quirk.CreateTsVectors(vectors...).Value))
+		}
 	}
 	return strings.Join(result, ",")
 }
@@ -276,5 +288,10 @@ func (u User) GetCustomFields() []UserField {
 }
 
 func (u User) GetColumns() []string {
-	return []string{}
+	return u.columns
+}
+
+func (u User) WithColumns(columns ...string) User {
+	u.columns = columns
+	return u
 }

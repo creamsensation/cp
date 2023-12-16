@@ -166,7 +166,7 @@ func (c *core) beforeServe() {
 func (c *core) createServer() {
 	c.http = &http.Server{
 		Addr:    fmt.Sprintf(":%d", c.config.App.Port),
-		Handler: c.router.createServerHandler(),
+		Handler: c.router.createHandler(),
 	}
 }
 

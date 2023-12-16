@@ -11,5 +11,8 @@ func Interface[T any]() string {
 }
 
 func IsFirstCharUpper(v string) bool {
+	if len(v) == 0 {
+		return false
+	}
 	return unicode.IsUpper(rune(v[0]))
 }

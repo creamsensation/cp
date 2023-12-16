@@ -18,8 +18,8 @@ type Generator interface {
 }
 
 type LinkGenerator interface {
-	Action(action string, args ...Map) string
-	Name(name string, args ...Map) string
+	Action(action string, arg ...Map) string
+	Name(name string, arg ...Map) string
 	SwitchLang(langCode string, overwrite ...Map) string
 }
 
@@ -36,6 +36,9 @@ const (
 )
 
 func (g generator) Action(action string, arg ...Map) string {
+	if g.control.component == nil {
+		return action
+	}
 	action = g.control.component.Name() + linkLevelDivider + action
 	shouldHaveModule := strings.Count(action, linkLevelDivider) == 3
 	shouldHaveController := strings.Count(action, linkLevelDivider) >= 2
@@ -80,28 +83,28 @@ func (g generator) Link() LinkGenerator {
 	return g
 }
 
-func (g generator) Name(name string, args ...Map) string {
+func (g generator) Name(name string, arg ...Map) string {
 	if len(name) == 0 {
 		return ""
 	}
 	if g.control.Request().Is().Localized() {
-		if len(args) == 0 {
-			args = make([]Map, 1)
-			args[0] = Map{requestVar.Lang: g.control.Request().Lang()}
+		if len(arg) == 0 {
+			arg = make([]Map, 1)
+			arg[0] = Map{requestVar.Lang: g.control.Request().Lang()}
 		}
-		if len(args) > 0 {
-			args[0][requestVar.Lang] = g.control.Request().Lang()
+		if len(arg) > 0 {
+			arg[0][requestVar.Lang] = g.control.Request().Lang()
 		}
 		localizedRoutes, ok := g.control.core.router.localizedRoutes[g.control.Request().Lang()]
 		if !ok {
 			return name
 		}
-		link, ok := g.generateLink(localizedRoutes, name, args...)
+		link, ok := g.generateLink(localizedRoutes, name, arg...)
 		if ok {
 			return link
 		}
 	}
-	link, _ := g.generateLink(g.control.core.router.routes, name, args...)
+	link, _ := g.generateLink(g.control.core.router.routes, name, arg...)
 	return link
 }
 

@@ -38,7 +38,7 @@ func CreateMigrationsConnections(configDir string) map[string]*quirk.DB {
 	return result
 }
 
-func CreateUsers(q *quirk.Quirk, customFields ...quirk.Field) {
+func CreateUsersTable(q *quirk.Quirk, customFields ...quirk.Field) {
 	fields := make([]quirk.Field, 0)
 	switch q.DB.DriverName() {
 	case quirk.Postgres:
@@ -57,6 +57,6 @@ func CreateUsers(q *quirk.Quirk, customFields ...quirk.Field) {
 	q.MustExec()
 }
 
-func DropUsers(q *quirk.Quirk) {
+func DropUsersTable(q *quirk.Quirk) {
 	q.Q(fmt.Sprintf(`DROP TABLE IF EXISTS %s CASCADE`, usersTable)).MustExec()
 }

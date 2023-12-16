@@ -44,7 +44,6 @@ type Control interface {
 	Request() Request
 	Response() Response
 	State() StateManager
-	Switch() Switcher
 	Translate(key string, args ...map[string]any) string
 }
 
@@ -74,9 +73,6 @@ var (
 
 func createControl(core *core, request *http.Request, response http.ResponseWriter) *control {
 	c := &control{
-		assets: assets.New(
-			core.config.Assets.PublicDir, core.assetter.Styles, make([]string, 0), core.assetter.Scripts,
-		),
 		config:     core.config,
 		context:    context.Background(),
 		core:       core,
@@ -86,6 +82,11 @@ func createControl(core *core, request *http.Request, response http.ResponseWrit
 		hxResponse: hx.New(request, response),
 		statusCode: new(int),
 		vars:       make(map[string]string),
+	}
+	if core.assetter != nil {
+		c.assets = assets.New(
+			core.config.Assets.PublicDir, core.assetter.Styles, make([]string, 0), core.assetter.Scripts,
+		)
 	}
 	c.notifier = &notifier{control: c}
 	c.state = createState(c)
@@ -137,12 +138,14 @@ func (c *control) DB(name ...string) *quirk.Quirk {
 		panic(ErrorInvalidDatabase)
 	}
 	q := quirk.New(d)
-	q.Subscribe(
-		func(q string, t time.Duration) {
-			devInternal := c.dev.(dev.Internal)
-			devInternal.Query(q, t)
-		},
-	)
+	if c.dev != nil {
+		q.Subscribe(
+			func(q string, t time.Duration) {
+				devInternal := c.dev.(dev.Internal)
+				devInternal.Query(q, t)
+			},
+		)
+	}
 	return q
 }
 
@@ -212,10 +215,6 @@ func (c *control) Response() Response {
 
 func (c *control) State() StateManager {
 	return c.state
-}
-
-func (c *control) Switch() Switcher {
-	return switcher{c}
 }
 
 func (c *control) Translate(key string, args ...map[string]any) string {
