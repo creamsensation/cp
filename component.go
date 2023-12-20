@@ -49,7 +49,7 @@ func createComponentControl(c *control, ct component) *control {
 	*cc = *c
 	cc.component = ct
 	cc.main = c
-	cc.notifier = &notifier{control: cc, name: createPrefixedComponentName(cc)}
+	cc.flash = &flashMessenger{control: cc, name: createPrefixedComponentName(cc)}
 	cc.state = createState(cc)
 	return cc
 }

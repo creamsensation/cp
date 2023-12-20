@@ -59,10 +59,14 @@ func (r request) Is() requester.Is {
 }
 
 func (r request) Lang() string {
-	if r.core.router.localized {
-		return Var[string](r.control, requestVar.Lang)
+	if !r.core.router.localized {
+		return ""
 	}
-	return r.Cookie().Get(cookieName.Lang)
+	lc := Var[string](r.control, requestVar.Lang)
+	if len(lc) == 0 {
+		return r.Cookie().Get(cookieName.Lang)
+	}
+	return lc
 }
 
 func (r request) Method() string {
@@ -97,5 +101,9 @@ func (r request) UserAgent() string {
 }
 
 func (r request) Var(key string, defaultValue ...string) string {
-	return Var[string](r.control, key)
+	v := Var[string](r.control, key)
+	if len(v) == 0 && len(defaultValue) > 0 {
+		return defaultValue[0]
+	}
+	return v
 }

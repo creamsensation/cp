@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/andybalholm/brotli v1.0.6
 	github.com/charmbracelet/lipgloss v0.9.1
+	github.com/creamsensation/assetter v0.1.1
 	github.com/creamsensation/form v0.1.1
 	github.com/creamsensation/gox v0.3.0
 	github.com/creamsensation/quirk v0.1.2

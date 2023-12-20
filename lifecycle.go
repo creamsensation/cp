@@ -9,8 +9,11 @@ import (
 	"strings"
 	
 	"github.com/creamsensation/cp/env"
+	"github.com/creamsensation/cp/internal/constant/cookieName"
+	"github.com/creamsensation/cp/internal/constant/expiration"
 	"github.com/creamsensation/cp/internal/constant/header"
 	"github.com/creamsensation/cp/internal/constant/naming"
+	"github.com/creamsensation/cp/internal/constant/requestVar"
 	"github.com/creamsensation/cp/internal/dev"
 	"github.com/creamsensation/cp/internal/firewall"
 	"github.com/creamsensation/cp/internal/handler"
@@ -185,8 +188,25 @@ func (l *lifecycle) runResponseResultCreator() {
 	}
 	l.prepareDev()
 	l.createSecurityHeaders()
+	l.validateLanguage()
 	l.callFn(l.control.route.Fn)
 	l.writeResult()
+}
+
+func (l *lifecycle) validateLanguage() {
+	if !l.control.core.router.localized {
+		return
+	}
+	lc := l.control.Request().Var(requestVar.Lang)
+	if len(lc) == 0 {
+		for k, v := range l.control.config.Languages {
+			if v.Enabled && v.Default {
+				lc = k
+				break
+			}
+		}
+	}
+	l.control.Cookie().Set(cookieName.Lang, lc, expiration.Lang)
 }
 
 func (l *lifecycle) createSecurityHeaders() {

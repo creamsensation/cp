@@ -5,6 +5,8 @@ import (
 	"strings"
 	
 	"github.com/creamsensation/cp/internal/constant/componentState"
+	"github.com/creamsensation/cp/internal/constant/cookieName"
+	"github.com/creamsensation/cp/internal/constant/expiration"
 	"github.com/creamsensation/cp/internal/constant/queryKey"
 	"github.com/creamsensation/cp/internal/constant/requestVar"
 	"github.com/creamsensation/cp/internal/querystring"
@@ -76,7 +78,7 @@ func (g generator) Asset(path string) string {
 	if strings.HasPrefix(path, "/") {
 		path = strings.TrimPrefix(path, "/")
 	}
-	return fmt.Sprintf("%s/%s", g.control.config.Assets.PublicDir, path)
+	return fmt.Sprintf("%s/%s", g.control.config.Assets.PublicPath, path)
 }
 
 func (g generator) Link() LinkGenerator {
@@ -123,11 +125,14 @@ func (g generator) Query(arg Map) string {
 }
 
 func (g generator) SwitchLang(langCode string, overwrite ...Map) string {
+	if !g.control.core.router.localized {
+		return g.control.Request().Path()
+	}
 	var vars Map
 	if !g.control.core.router.localized {
 		return fmt.Sprintf("<%s:router is not localized>", langCode)
 	}
-	currentLang := g.control.Request().Lang()
+	currentLang := Var[string](g.control, requestVar.Lang)
 	index := -1
 	for lc, lr := range g.control.core.router.localizedRoutes {
 		if lc != currentLang {
@@ -168,6 +173,7 @@ func (g generator) SwitchLang(langCode string, overwrite ...Map) string {
 			path = strings.Replace(path, vp, Var[string](g.control, vk), 1)
 		}
 	}
+	g.control.Cookie().Set(cookieName.Lang, langCode, expiration.Lang)
 	return path
 }
 

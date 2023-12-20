@@ -57,7 +57,7 @@ var (
 func New(configDir string) Core {
 	cfg := config.Parse(configDir)
 	c := &core{
-		assetter:   assetter.New(cfg.Assets.EntryPath, cfg.Assets.ConfigPath, cfg.Assets.PublicPath),
+		assetter:   assetter.New(cfg.Assets.RootPath, cfg.Assets.ConfigPath, cfg.Assets.PublicPath, cfg.Assets.OutputPath),
 		config:     cfg,
 		databases:  make(map[string]*quirk.DB),
 		deps:       make(map[string]*Dependency),
@@ -121,6 +121,7 @@ func (c *core) Routes(builders ...*route.Builder) Core {
 }
 
 func (c *core) Serve() {
+	defer c.onDestroy()
 	fmt.Printf(
 		"🍰 %s [%s] running on port -> :%s \n",
 		style.PinkColor.Render("Creampuff"),
@@ -157,6 +158,10 @@ func (c *core) onInit() {
 	go c.createCacheConnection()
 	go c.createDatabasesConnections()
 	go c.createFilesystem()
+}
+
+func (c *core) onDestroy() {
+
 }
 
 func (c *core) beforeServe() {

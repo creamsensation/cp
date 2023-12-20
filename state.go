@@ -57,8 +57,7 @@ func (s *stateManager) Get(result any) {
 	}
 	var r state
 	s.control.Cache().Get(s.cacheKey, &r)
-	if s.control.Request().Lang() != r.Lang ||
-		s.control.Request().Ip() != r.Ip ||
+	if s.control.Request().Ip() != r.Ip ||
 		s.control.Request().UserAgent() != r.UserAgent {
 		return
 	}

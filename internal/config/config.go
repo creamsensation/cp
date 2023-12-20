@@ -40,9 +40,10 @@ func Parse(dir string) Config {
 	parsePart(dir, "router", &result)
 	parsePart(dir, "security", &result)
 	parsePart(dir, "smtp", &result)
-	if !strings.HasPrefix(result.Assets.PublicDir, "/") {
-		result.Assets.PublicDir = "/" + result.Assets.PublicDir
-	}
+	result.Assets.RootPath = strings.TrimPrefix(result.Assets.RootPath, "/")
+	result.Assets.PublicPath = strings.TrimPrefix(result.Assets.PublicPath, "/")
+	result.Assets.ConfigPath = strings.TrimPrefix(result.Assets.ConfigPath, "/")
+	result.Assets.OutputPath = strings.TrimPrefix(result.Assets.OutputPath, "/")
 	result.Router.PathPrefix = strings.TrimPrefix(strings.TrimSuffix(result.Router.PathPrefix, "/"), "")
 	return result
 }

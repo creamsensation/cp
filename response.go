@@ -75,7 +75,7 @@ func (r response) Redirect(name string) Result {
 	if r.control.main != nil || *r.control.statusCode == 0 {
 		*r.control.statusCode = http.StatusFound
 	}
-	r.control.notifier.store()
+	r.control.flash.store()
 	if strings.HasPrefix(name, "/") {
 		return result.CreateRedirect(name, *r.control.statusCode)
 	}

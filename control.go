@@ -36,9 +36,9 @@ type Control interface {
 	Error() ErrorHandler
 	Event() Event
 	File() filesystem.Filesystem
+	Flash() FlashMessenger
 	Generate() Generator
 	Link(name string, arg ...Map) string
-	Notifications() Notifier
 	Handle() Handle
 	Page() page.Page
 	Request() Request
@@ -55,7 +55,7 @@ type control struct {
 	dev        dev.Dev
 	context    context.Context
 	main       *control
-	notifier   *notifier
+	flash      *flashMessenger
 	page       page.Page
 	request    *http.Request
 	response   http.ResponseWriter
@@ -85,10 +85,10 @@ func createControl(core *core, request *http.Request, response http.ResponseWrit
 	}
 	if core.assetter != nil {
 		c.assets = assets.New(
-			core.config.Assets.PublicDir, core.assetter.Styles, make([]string, 0), core.assetter.Scripts,
+			core.config.Assets.RootPath, core.assetter.Styles, make([]string, 0), core.assetter.Scripts,
 		)
 	}
-	c.notifier = &notifier{control: c}
+	c.flash = &flashMessenger{control: c}
 	c.state = createState(c)
 	if env.Development() {
 		c.dev = dev.New(core.devtool, getSession(c))
@@ -178,6 +178,10 @@ func (c *control) File() filesystem.Filesystem {
 	)
 }
 
+func (c *control) Flash() FlashMessenger {
+	return c.flash
+}
+
 func (c *control) Generate() Generator {
 	return &generator{control: c}
 }
@@ -191,10 +195,6 @@ func (c *control) Link(name string, arg ...Map) string {
 
 func (c *control) Main() Control {
 	return c.main
-}
-
-func (c *control) Notifications() Notifier {
-	return c.notifier
 }
 
 func (c *control) Handle() Handle {

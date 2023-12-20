@@ -56,7 +56,7 @@ func createServerHandler(core *core, routes []route.Route) *serverHandler {
 }
 
 func (h *serverHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	if req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, h.config.Assets.PublicDir) {
+	if req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, "/"+h.config.Assets.PublicPath) {
 		h.staticHandler.ServeHTTP(res, req)
 		return
 	}
@@ -82,7 +82,7 @@ func (h *staticHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	defer func(br *brotli.Writer) {
 		_ = br.Close()
 	}(br)
-	path := h.core.config.Assets.PublicPath + strings.TrimPrefix(req.URL.Path, h.config.Assets.PublicDir)
+	path := h.core.config.Assets.RootPath + req.URL.Path
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return

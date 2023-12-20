@@ -6,21 +6,21 @@ import (
 
 type Ui interface {
 	ErrorPage(fn uiErrorFn) Ui
+	Flash(fn uiFlashFn) Ui
 	Layout(name string, fn uiLayoutFn) Ui
-	Notification(fn uiNotificationFn) Ui
 }
 
 type ui struct {
-	errorPage    uiErrorFn
-	layouts      map[string]uiLayoutFn
-	notification uiNotificationFn
+	errorPage uiErrorFn
+	flash     uiFlashFn
+	layouts   map[string]uiLayoutFn
 }
 
 type uiErrorFn = func(c Control, err Error) gox.Node
 
 type uiLayoutFn = func(c Control, nodes ...gox.Node) gox.Node
 
-type uiNotificationFn = func(c Control, notification Notification) gox.Node
+type uiFlashFn = func(c Control, flash FlashMessage) gox.Node
 
 func createUi() *ui {
 	return &ui{layouts: make(map[string]uiLayoutFn)}
@@ -36,8 +36,8 @@ func (u *ui) Layout(name string, fn uiLayoutFn) Ui {
 	return u
 }
 
-func (u *ui) Notification(fn uiNotificationFn) Ui {
-	u.notification = fn
+func (u *ui) Flash(fn uiFlashFn) Ui {
+	u.flash = fn
 	return u
 }
 

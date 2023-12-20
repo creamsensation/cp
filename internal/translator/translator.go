@@ -39,7 +39,7 @@ func (t *Translator) Prepare() {
 func (t *Translator) Translate(langCode, key string, args ...map[string]any) string {
 	langTranslates, ok := t.translates[langCode]
 	if !ok {
-		return fmt.Sprintf("<%s:language not found>", langCode)
+		return key
 	}
 	translate, ok := langTranslates[key]
 	if !ok {
