@@ -13,12 +13,13 @@ import (
 	"github.com/creamsensation/cp/internal/config"
 	"github.com/creamsensation/cp/internal/constant/cacheAdapter"
 	"github.com/creamsensation/cp/internal/constant/naming"
+	"github.com/creamsensation/cp/internal/tests"
 	"github.com/creamsensation/quirk"
 )
 
 func TestAuth(t *testing.T) {
 	var sessionCookie, tfaCookie *http.Cookie
-	db, redis := createTestConnections(t)
+	db, redis := tests.CreateDatabaseConnection(t), tests.CreateRedisConnection(t)
 	DropUsersTable(quirk.New(db))
 	CreateUsersTable(quirk.New(db))
 	user := User{
@@ -45,7 +46,7 @@ func TestAuth(t *testing.T) {
 	}
 	t.Run(
 		"create user", func(t *testing.T) {
-			id := CreateUserManager(quirk.New(db), 0, "").Create(user)
+			id := CreateUserManager(db, 0, "").Create(user)
 			user.Id = id
 			assert.Equal(t, true, id != 0)
 		},
@@ -96,7 +97,8 @@ func TestAuth(t *testing.T) {
 			c.DB().Q(`SELECT tfa_secret FROM users WHERE id = ?`, u.Id).MustExec(&u)
 			otp, err := totp.GenerateCode(u.TfaSecret.String, time.Now())
 			assert.Nil(t, err)
-			assert.Equal(t, true, c.Auth().Tfa().Verify(otp))
+			_, ok := c.Auth().Tfa().Verify(otp)
+			assert.Equal(t, true, ok)
 		},
 	)
 	t.Run(
@@ -117,8 +119,8 @@ func TestAuth(t *testing.T) {
 	t.Run(
 		"update user", func(t *testing.T) {
 			u := User{Active: false}
-			CreateUserManager(quirk.New(db), user.Id, "dominik@linduska.dev").Update(u.WithColumns("active"))
-			CreateUserManager(quirk.New(db), user.Id, "dominik@linduska.dev").Get(&u)
+			CreateUserManager(db, user.Id, "dominik@linduska.dev").Update(u.WithColumns("active"))
+			CreateUserManager(db, user.Id, "dominik@linduska.dev").Get(&u)
 			assert.Equal(t, false, u.Active)
 		},
 	)

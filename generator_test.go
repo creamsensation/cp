@@ -8,11 +8,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	
 	"github.com/creamsensation/cp/internal/config"
+	"github.com/creamsensation/cp/internal/tests"
 )
 
 func TestGenerator(t *testing.T) {
 	testCore := &core{
-		config: config.Config{Languages: testsLangs},
+		config: config.Config{
+			Languages: tests.Languages,
+			Router:    config.Router{Localized: true},
+		},
 	}
 	testCore.router = createRouter(testCore)
 	testCore.Routes(
@@ -53,7 +57,10 @@ func TestGenerator(t *testing.T) {
 
 func TestLocalizedGenerator(t *testing.T) {
 	testCore := &core{
-		config: config.Config{Languages: testsLangs},
+		config: config.Config{
+			Languages: tests.Languages,
+			Router:    config.Router{Localized: true},
+		},
 	}
 	testCore.router = createRouter(testCore)
 	testCore.Routes(

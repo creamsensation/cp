@@ -54,5 +54,8 @@ func (i is) Hx() bool {
 }
 
 func (i is) Localized() bool {
+	if i.localizedUrlMatcher == nil {
+		return false
+	}
 	return i.localizedUrlMatcher.MatchString(i.URL.Path)
 }

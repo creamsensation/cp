@@ -31,7 +31,7 @@ func createRouter(core *core) *router {
 		core:            core,
 		config:          core.config,
 		firewalls:       make(map[string]*firewall.Firewall),
-		localized:       isRouterLocalized(core.config.Languages),
+		localized:       core.config.Router.Localized,
 		localizedRoutes: make(map[string][]route.Route),
 		middlewares:     make([]handler.Fn, 0),
 	}
@@ -256,18 +256,6 @@ func prepareLocalizedRoutes(items []*route.Builder, firewalls map[string]*firewa
 		}
 	}
 	return result
-}
-
-func isRouterLocalized(languages config.Languages) bool {
-	if len(languages) == 0 {
-		return false
-	}
-	for _, l := range languages {
-		if l.Enabled {
-			return true
-		}
-	}
-	return false
 }
 
 func createRouteFirewall(f *firewall.Firewall) *firewall.Route {

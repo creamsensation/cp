@@ -39,7 +39,6 @@ func createRateLimitMiddleware(security config.Security) func(c Control) Result 
 		limiter     *rate.Limiter
 		lastAttempt time.Time
 	}
-	
 	var mu sync.Mutex
 	clients := make(map[string]*client)
 	go func() {

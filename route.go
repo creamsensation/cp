@@ -38,37 +38,37 @@ func Method(methods ...route.Config) route.Config {
 }
 
 func Get(path ...route.PathValue) route.Config {
-	return route.CreatePath(http.MethodGet, path...)
+	return route.CreateMethodPathConfig(http.MethodGet, path...)
 }
 
 func Post(path ...route.PathValue) route.Config {
-	return route.CreatePath(http.MethodPost, path...)
+	return route.CreateMethodPathConfig(http.MethodPost, path...)
 }
 
 func Put(path ...route.PathValue) route.Config {
-	return route.CreatePath(http.MethodPut, path...)
+	return route.CreateMethodPathConfig(http.MethodPut, path...)
 }
 
 func Patch(path ...route.PathValue) route.Config {
-	return route.CreatePath(http.MethodPatch, path...)
+	return route.CreateMethodPathConfig(http.MethodPatch, path...)
 }
 
 func Delete(path ...route.PathValue) route.Config {
-	return route.CreatePath(http.MethodDelete, path...)
+	return route.CreateMethodPathConfig(http.MethodDelete, path...)
 }
 
 func Options(path ...route.PathValue) route.Config {
-	return route.CreatePath(http.MethodOptions, path...)
+	return route.CreateMethodPathConfig(http.MethodOptions, path...)
 }
 
 func Head(path ...route.PathValue) route.Config {
-	return route.CreatePath(http.MethodHead, path...)
+	return route.CreateMethodPathConfig(http.MethodHead, path...)
 }
 
 func Trace(path ...route.PathValue) route.Config {
-	return route.CreatePath(http.MethodTrace, path...)
+	return route.CreateMethodPathConfig(http.MethodTrace, path...)
 }
 
 func Connect(path ...route.PathValue) route.Config {
-	return route.CreatePath(http.MethodConnect, path...)
+	return route.CreateMethodPathConfig(http.MethodConnect, path...)
 }

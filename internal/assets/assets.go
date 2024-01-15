@@ -13,7 +13,7 @@ type Assets interface {
 	GetStyles() gox.Node
 	GetScripts() gox.Node
 	AddStyle(path string) Assets
-	AddScript(path string, afterDomParse bool) Assets
+	AddScript(path string, afterDomLoaded bool) Assets
 }
 
 type assets struct {
@@ -24,6 +24,9 @@ type assets struct {
 }
 
 func New(publicPath string, styles, scripts, scriptsDefer []string) Assets {
+	if !strings.HasPrefix(publicPath, "/") {
+		publicPath = "/" + publicPath
+	}
 	return &assets{
 		publicPath:   publicPath,
 		styles:       styles,
@@ -42,6 +45,9 @@ func (a *assets) Get(path string) string {
 func (a *assets) GetStyles() gox.Node {
 	return gox.Range(
 		a.styles, func(value string, _ int) gox.Node {
+			if !strings.HasPrefix(value, "/") {
+				value = "/" + value
+			}
 			return gox.Link(
 				gox.Rel("stylesheet"),
 				gox.Type("text/css"),
@@ -55,11 +61,17 @@ func (a *assets) GetScripts() gox.Node {
 	return gox.Fragment(
 		gox.Range(
 			a.scripts, func(value string, _ int) gox.Node {
+				if !strings.HasPrefix(value, "/") {
+					value = "/" + value
+				}
 				return gox.Script(gox.Src(value), gox.Type("module"))
 			},
 		),
 		gox.Range(
 			a.scriptsDefer, func(value string, _ int) gox.Node {
+				if !strings.HasPrefix(value, "/") {
+					value = "/" + value
+				}
 				return gox.Script(gox.Defer(), gox.Src(value), gox.Type("module"))
 			},
 		),
@@ -74,17 +86,17 @@ func (a *assets) AddStyle(path string) Assets {
 	return a
 }
 
-func (a *assets) AddScript(path string, afterDomParse bool) Assets {
-	if !afterDomParse && slices.Contains(a.scripts, path) {
+func (a *assets) AddScript(path string, afterDomLoaded bool) Assets {
+	if !afterDomLoaded && slices.Contains(a.scripts, path) {
 		return a
 	}
-	if afterDomParse && slices.Contains(a.scriptsDefer, path) {
+	if afterDomLoaded && slices.Contains(a.scriptsDefer, path) {
 		return a
 	}
-	if !afterDomParse {
+	if !afterDomLoaded {
 		a.scripts = append(a.scripts, path)
 	}
-	if afterDomParse {
+	if afterDomLoaded {
 		a.scriptsDefer = append(a.scriptsDefer, path)
 	}
 	return a

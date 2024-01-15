@@ -55,7 +55,7 @@ func (c client) Exists(key string) bool {
 
 func (c client) Get(key string, data any) error {
 	if c.isNil() {
-		return errors.New("adapter instance not exist")
+		return errors.New("cache adapter instance not exist")
 	}
 	var value string
 	switch c.adapter {
@@ -76,7 +76,7 @@ func (c client) Get(key string, data any) error {
 
 func (c client) Set(key string, data any, expiration time.Duration) error {
 	if c.isNil() {
-		return errors.New("adapter instance not exist")
+		return errors.New("cache adapter instance not exist")
 	}
 	b, err := json.Marshal(data)
 	if err != nil {

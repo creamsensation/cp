@@ -9,7 +9,6 @@ import (
 	
 	"github.com/creamsensation/cp/internal/constant/cookieName"
 	"github.com/creamsensation/cp/internal/constant/naming"
-	"github.com/creamsensation/quirk"
 )
 
 type Auth interface {
@@ -22,15 +21,17 @@ type Auth interface {
 }
 
 type AuthIn interface {
+	Token() string
 	Ok() bool
 	Tfa() bool
 	Error() error
 }
 
 type authIn struct {
-	ok  bool
-	tfa bool
-	err error
+	token string
+	ok    bool
+	tfa   bool
+	err   error
 }
 
 type auth struct {
@@ -56,7 +57,7 @@ func (a auth) User(dbname ...string) UserManager {
 		dbn = dbname[0]
 	}
 	s := a.Session().Get()
-	return CreateUserManager(quirk.New(a.core.databases[dbn]), s.Id, s.Email)
+	return CreateUserManager(a.core.databases[dbn], s.Id, s.Email)
 }
 
 func (a auth) In(email, password string) AuthIn {
@@ -92,21 +93,26 @@ func (a auth) In(email, password string) AuthIn {
 		a.Cache().Set(token, User{Id: r.Id}, time.Minute*5)
 		a.Cookie().Set(cookieName.Tfa, token, time.Minute*5)
 		return authIn{
-			ok:  true,
-			err: nil,
-			tfa: true,
+			token: token,
+			ok:    true,
+			err:   nil,
+			tfa:   true,
 		}
 	}
-	a.Session().New(r)
 	return authIn{
-		ok:  true,
-		err: nil,
-		tfa: false,
+		token: a.Session().New(r),
+		ok:    true,
+		err:   nil,
+		tfa:   false,
 	}
 }
 
 func (a auth) Out() {
 	a.Session().Destroy()
+}
+
+func (a authIn) Token() string {
+	return a.token
 }
 
 func (a authIn) Ok() bool {

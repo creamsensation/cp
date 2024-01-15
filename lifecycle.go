@@ -13,6 +13,7 @@ import (
 	"github.com/creamsensation/cp/internal/constant/expiration"
 	"github.com/creamsensation/cp/internal/constant/header"
 	"github.com/creamsensation/cp/internal/constant/naming"
+	"github.com/creamsensation/cp/internal/constant/queryKey"
 	"github.com/creamsensation/cp/internal/constant/requestVar"
 	"github.com/creamsensation/cp/internal/dev"
 	"github.com/creamsensation/cp/internal/firewall"
@@ -194,19 +195,34 @@ func (l *lifecycle) runResponseResultCreator() {
 }
 
 func (l *lifecycle) validateLanguage() {
-	if !l.control.core.router.localized {
-		return
-	}
-	lc := l.control.Request().Var(requestVar.Lang)
-	if len(lc) == 0 {
-		for k, v := range l.control.config.Languages {
-			if v.Enabled && v.Default {
-				lc = k
-				break
+	var lc string
+	languagesExist := l.core.languagesExist()
+	if languagesExist && l.control.core.router.localized {
+		lc = l.control.Request().Var(requestVar.Lang)
+		if len(lc) == 0 {
+			for k, v := range l.control.config.Languages {
+				if v.Enabled && v.Default {
+					lc = k
+					break
+				}
 			}
 		}
 	}
-	l.control.Cookie().Set(cookieName.Lang, lc, expiration.Lang)
+	if languagesExist && !l.control.core.router.localized {
+		lc = l.control.Cookie().Get(cookieName.Lang)
+		if len(lc) == 0 {
+			for k, v := range l.control.config.Languages {
+				if v.Enabled && v.Default {
+					lc = k
+					break
+				}
+			}
+		}
+		lc = l.control.Request().Query(queryKey.Lang, lc)
+	}
+	if languagesExist {
+		l.control.Cookie().Set(cookieName.Lang, lc, expiration.Lang)
+	}
 }
 
 func (l *lifecycle) createSecurityHeaders() {
@@ -216,6 +232,7 @@ func (l *lifecycle) createSecurityHeaders() {
 	l.response.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 	l.response.Header().Set("Cross-Origin-Resource-Policy", "same-site")
 	l.response.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
+	l.response.Header().Set("Vary", "origin")
 	l.response.Header().Set(
 		"Cross-Origin-Embedder-Policy", "require-corp",
 	) // Pokud necemu vyslovene nedas crossorigin, brani v loadu

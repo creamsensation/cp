@@ -78,7 +78,7 @@ func (g generator) Asset(path string) string {
 	if strings.HasPrefix(path, "/") {
 		path = strings.TrimPrefix(path, "/")
 	}
-	return fmt.Sprintf("%s/%s", g.control.config.Assets.PublicPath, path)
+	return fmt.Sprintf("/%s/%s", g.control.config.Assets.PublicPath, path)
 }
 
 func (g generator) Link() LinkGenerator {

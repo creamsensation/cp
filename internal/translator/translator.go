@@ -33,6 +33,10 @@ func New(dir string) *Translator {
 }
 
 func (t *Translator) Prepare() {
+	if _, err := os.Stat(t.dir); os.IsNotExist(err) {
+		fmt.Println("error: translates folder does not exist")
+		return
+	}
 	t.walk()
 }
 
@@ -68,7 +72,8 @@ func (t *Translator) walk() {
 			if t.translates[lang] == nil {
 				t.translates[lang] = make(map[string]string)
 			}
-			subpath := strings.TrimPrefix(strings.TrimSuffix(path, info.Name()), t.dir)
+			dir := strings.TrimPrefix(t.dir, "./")
+			subpath := strings.TrimPrefix(strings.TrimSuffix(path, info.Name()), dir)
 			subpath = strings.TrimPrefix(subpath, "/")
 			subpath = strings.TrimSuffix(subpath, "/")
 			pathPrefix := t.createPathPrefix(subpath)

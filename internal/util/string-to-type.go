@@ -19,7 +19,7 @@ func StringToType[T any](v string) T {
 	case float32:
 		res, err := strconv.ParseFloat(v, 32)
 		if err == nil {
-			result = any(res).(T)
+			result = any(float32(res)).(T)
 		}
 	case float64:
 		res, err := strconv.ParseFloat(v, 64)

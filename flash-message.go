@@ -73,7 +73,9 @@ func (n *flashMessenger) Error(err error, subtitle ...string) {
 }
 
 func (n *flashMessenger) load() {
-	n.token = n.Cookie().Get(cookieName.Flash)
+	if len(n.token) == 0 {
+		n.token = n.Cookie().Get(cookieName.Flash)
+	}
 	if len(n.token) == 0 {
 		n.token = uniuri.New()
 	}

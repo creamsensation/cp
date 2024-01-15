@@ -48,7 +48,7 @@ func CreatePathConfig(path PathValue) Config {
 	}
 }
 
-func CreatePath(method string, path ...PathValue) Config {
+func CreateMethodPathConfig(method string, path ...PathValue) Config {
 	var p PathValue
 	if len(path) > 0 {
 		p = path[0]

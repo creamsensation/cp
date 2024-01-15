@@ -15,9 +15,15 @@ import (
 type SessionManager interface {
 	Exists() bool
 	Get() session.Session
-	New(user UserReader)
+	New(user SessionReader) string
 	Renew()
 	Destroy()
+}
+
+type SessionReader interface {
+	GetId() int
+	GetEmail() string
+	GetRoles() []string
 }
 
 type sessionManager struct {
@@ -40,7 +46,7 @@ func (s sessionManager) Get() session.Session {
 	return r
 }
 
-func (s sessionManager) New(user UserReader) {
+func (s sessionManager) New(user SessionReader) string {
 	token := uniuri.New()
 	duration := s.config.Security.Session.Duration
 	if duration.Hours() == 0 {
@@ -48,6 +54,7 @@ func (s sessionManager) New(user UserReader) {
 	}
 	s.Cookie().Set(cookieName.Session, token, duration)
 	s.Cache().Set(s.getKey(token), s.createSession(user), duration)
+	return token
 }
 
 func (s sessionManager) Renew() {
@@ -77,7 +84,7 @@ func (s sessionManager) getKey(token string) string {
 	return createSessionKey(token)
 }
 
-func (s sessionManager) createSession(user UserReader) session.Session {
+func (s sessionManager) createSession(user SessionReader) session.Session {
 	return session.Session{
 		Id:        user.GetId(),
 		Email:     user.GetEmail(),

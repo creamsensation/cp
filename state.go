@@ -10,6 +10,7 @@ import (
 )
 
 type StateManager interface {
+	Exists() bool
 	Get(result any)
 	Set(data any)
 	Reset()
@@ -48,6 +49,10 @@ func createState(control *control) StateManager {
 	}
 	s.cacheKey = s.createCacheKey()
 	return s
+}
+
+func (s *stateManager) Exists() bool {
+	return s.control.Cache().Exists(s.cacheKey)
 }
 
 func (s *stateManager) Get(result any) {

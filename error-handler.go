@@ -24,12 +24,17 @@ type errorHandler struct {
 	message string
 }
 
-func Check[T any](v T, err error) T {
-	if err == nil {
-		return v
-	}
-	panic(err)
+type Error struct {
+	Message    string
+	Route      string
+	StatusCode int
 }
+
+var (
+	ErrorInvalidCredentials = errors.New("invalid credentials")
+	ErrorInvalidDatabase    = errors.New("invalid database")
+	ErrorForbidden          = errors.New("insufficient rights")
+)
 
 func createErrorHandler(control *control) *errorHandler {
 	return &errorHandler{

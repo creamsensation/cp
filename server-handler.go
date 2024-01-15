@@ -1,10 +1,12 @@
 package cp
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 	
 	"github.com/andybalholm/brotli"
 	
@@ -56,6 +58,7 @@ func createServerHandler(core *core, routes []route.Route) *serverHandler {
 }
 
 func (h *serverHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	h.assetsReader.read()
 	if req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, "/"+h.config.Assets.PublicPath) {
 		h.staticHandler.ServeHTTP(res, req)
 		return
@@ -83,7 +86,19 @@ func (h *staticHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		_ = br.Close()
 	}(br)
 	path := h.core.config.Assets.RootPath + req.URL.Path
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	stat, err := os.Stat(path)
+	if !os.IsNotExist(err) {
+		timestamp := fmt.Sprintf("%d", stat.ModTime().UnixNano())
+		res.Header().Set(header.ETag, timestamp)
+		res.Header().Set(header.CacheControl, fmt.Sprintf("max-age=%f", time.Hour.Seconds()))
+		if match := res.Header().Get(header.IfNoneMatch); match != "" {
+			if strings.Contains(match, timestamp) {
+				res.WriteHeader(http.StatusNotModified)
+				return
+			}
+		}
+	}
+	if os.IsNotExist(err) {
 		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}

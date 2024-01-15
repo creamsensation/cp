@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"reflect"
-	"time"
 	
 	"github.com/go-redis/redis/v8"
 	
-	"github.com/creamsensation/assetter"
 	"github.com/creamsensation/cp/internal/cache/memory"
 	"github.com/creamsensation/cp/internal/config"
 	"github.com/creamsensation/cp/internal/connect"
@@ -26,7 +25,6 @@ import (
 type Core interface {
 	Container(dependencies ...*Dependency) Core
 	Controllers(controllers ...Controller) Core
-	Event() Event
 	Middleware(middlewares ...handler.Fn) Core
 	Modules(modules ...Module) Core
 	Routes(builders ...*route.Builder) Core
@@ -35,36 +33,31 @@ type Core interface {
 }
 
 type core struct {
-	assetter   *assetter.Assetter
-	config     config.Config
-	databases  map[string]*quirk.DB
-	deps       map[string]*Dependency
-	devtool    *devtool.Devtool
-	event      *eventBus
-	fs         *filesystem.FS
-	http       *http.Server
-	memory     memory.Client
-	redis      *redis.Client
-	router     *router
-	translator *translator.Translator
-	ui         *ui
+	assetsReader *assetsReader
+	config       config.Config
+	databases    map[string]*quirk.DB
+	deps         map[string]*Dependency
+	devtool      *devtool.Devtool
+	fs           *filesystem.FS
+	http         *http.Server
+	memory       memory.Client
+	redis        *redis.Client
+	router       *router
+	translator   *translator.Translator
+	ui           *ui
 }
-
-var (
-	assetsMsg = []byte("<assets:ok>")
-)
 
 func New(configDir string) Core {
 	cfg := config.Parse(configDir)
+	wd, _ := os.Getwd()
 	c := &core{
-		assetter:   assetter.New(cfg.Assets.RootPath, cfg.Assets.ConfigPath, cfg.Assets.PublicPath, cfg.Assets.OutputPath),
-		config:     cfg,
-		databases:  make(map[string]*quirk.DB),
-		deps:       make(map[string]*Dependency),
-		devtool:    devtool.New(),
-		event:      new(eventBus),
-		translator: translator.New(configDir),
-		ui:         createUi(),
+		assetsReader: createAssetsReader(wd, cfg.Assets),
+		config:       cfg,
+		databases:    make(map[string]*quirk.DB),
+		deps:         make(map[string]*Dependency),
+		devtool:      devtool.New(),
+		translator:   translator.New(configDir),
+		ui:           createUi(),
 	}
 	c.onInit()
 	c.router = createRouter(c)
@@ -96,10 +89,6 @@ func (c *core) Controllers(controllers ...Controller) Core {
 	return c
 }
 
-func (c *core) Event() Event {
-	return c.event
-}
-
 func (c *core) Middleware(middlewares ...handler.Fn) Core {
 	c.router.middlewares = append(c.router.middlewares, middlewares...)
 	return c
@@ -116,12 +105,11 @@ func (c *core) Routes(builders ...*route.Builder) Core {
 	for _, b := range builders {
 		route.Process(b, nil, c.config.Languages, c.config.Router)
 	}
-	c.router.builders = append(c.router.builders, route.CreateFlatBuilders(builders)...)
+	c.router.builders = append(c.router.builders, route.CreateFlatBuilders(builders...)...)
 	return c
 }
 
 func (c *core) Serve() {
-	defer c.onDestroy()
 	fmt.Printf(
 		"🍰 %s [%s] running on port -> :%s \n",
 		style.PinkColor.Render("Creampuff"),
@@ -140,28 +128,12 @@ func (c *core) Ui() Ui {
 }
 
 func (c *core) onInit() {
-	c.assetter.OnBuild = func() {
-		ticker := time.NewTicker(time.Minute * 5)
-		c.devtool.Hub().Send(assetsMsg)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				c.devtool.Hub().Send(assetsMsg)
-			}
-		}
-	}
-	if c.isLocalized() {
+	if c.languagesExist() {
 		go c.translator.Prepare()
 	}
-	go c.assetter.Build()
 	go c.createCacheConnection()
 	go c.createDatabasesConnections()
 	go c.createFilesystem()
-}
-
-func (c *core) onDestroy() {
-
 }
 
 func (c *core) beforeServe() {
@@ -178,7 +150,7 @@ func (c *core) createServer() {
 func (c *core) createCacheConnection() {
 	switch c.config.Cache.Adapter {
 	case cacheAdapter.Memory:
-		c.memory = memory.New()
+		c.memory = memory.New(os.TempDir())
 	case cacheAdapter.Redis:
 		c.redis = connect.Redis(c.config.Cache)
 	}
@@ -208,7 +180,7 @@ func (c *core) createFilesystem() {
 	}
 }
 
-func (c *core) isLocalized() bool {
+func (c *core) languagesExist() bool {
 	for _, l := range c.config.Languages {
 		if l.Enabled {
 			return true

@@ -19,6 +19,7 @@ type Request interface {
 	Lang() string
 	Method() string
 	Path() string
+	Protocol() string
 	Query(key string, defaultValue ...string) string
 	Raw() *http.Request
 	Route() string
@@ -85,7 +86,11 @@ func (r request) Protocol() string {
 }
 
 func (r request) Query(key string, defaultValue ...string) string {
-	return Query[string](r.control, key)
+	q := Query[string](r.control, key)
+	if len(q) == 0 && len(defaultValue) > 0 {
+		return defaultValue[0]
+	}
+	return q
 }
 
 func (r request) Raw() *http.Request {

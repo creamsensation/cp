@@ -1,10 +1,10 @@
 package route
 
-func CreateFlatBuilders(builders []*Builder) []*Builder {
+func CreateFlatBuilders(builders ...*Builder) []*Builder {
 	result := make([]*Builder, 0)
 	for _, b := range builders {
 		if len(b.Subroutes) > 0 {
-			result = append(result, CreateFlatBuilders(b.Subroutes)...)
+			result = append(result, CreateFlatBuilders(b.Subroutes...)...)
 			b.Subroutes = nil
 		}
 		result = append(result, b)

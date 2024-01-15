@@ -16,6 +16,8 @@ type UserManager interface {
 	Get(w UserWriter)
 	Create(r UserReader) int
 	Update(r UserReader)
+	Enable()
+	Disable()
 }
 
 type UserReader interface {
@@ -41,7 +43,7 @@ type UserField struct {
 }
 
 type userManager struct {
-	*quirk.Quirk
+	db         *quirk.DB
 	id         int
 	email      string
 	driverName string
@@ -85,13 +87,13 @@ var (
 	argon = argon2.DefaultConfig()
 )
 
-func CreateUserManager(q *quirk.Quirk, id int, email string) UserManager {
+func CreateUserManager(db *quirk.DB, id int, email string) UserManager {
 	return &userManager{
-		Quirk:      q,
-		id:         id,
+		db:         db,
 		email:      email,
+		id:         id,
 		data:       make(map[string]any),
-		driverName: q.DB.DriverName(),
+		driverName: db.DriverName(),
 	}
 }
 
@@ -100,33 +102,59 @@ func (u *userManager) Get(w UserWriter) {
 	if len(w.GetColumns()) > 0 {
 		columns = strings.Join(w.GetColumns(), ",")
 	}
-	u.Q(fmt.Sprintf(`SELECT %s`, columns)).
+	quirk.New(u.db).Q(fmt.Sprintf(`SELECT %s`, columns)).
 		Q(fmt.Sprintf(`FROM %s`, usersTable)).
 		If(u.id > 0, `WHERE id = ?`, u.id).
-		If(u.id == 0, `WHERE email ?`, u.email).
+		If(u.id == 0, `WHERE email = ?`, u.email).
 		Q(`LIMIT 1`).
 		MustExec(w)
+	clear(u.data)
 }
 
 func (u *userManager) Create(r UserReader) int {
+	if u.id != 0 {
+		var usr User
+		u.Get(&usr)
+		return usr.Id
+	}
 	u.readData(r)
 	columns, placeholders := u.insertValues()
-	var id int
-	u.Q(fmt.Sprintf(`INSERT INTO %s`, usersTable)).
+	quirk.New(u.db).Q(fmt.Sprintf(`INSERT INTO %s`, usersTable)).
 		Q(fmt.Sprintf(`(%s)`, columns)).
 		Q(fmt.Sprintf(`VALUES (%s)`, placeholders), u.args()...).
 		Q(`RETURNING id`).
-		MustExec(&id)
-	return id
+		MustExec(&u.id)
+	u.email = r.GetEmail()
+	clear(u.data)
+	return u.id
 }
 
 func (u *userManager) Update(r UserReader) {
 	u.readData(r)
-	u.Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
+	quirk.New(u.db).Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
 		Q(fmt.Sprintf(`SET %s`, u.updateValues()), u.args()...).
 		If(u.id > 0, `WHERE id = ?`, u.id).
-		If(u.id == 0, `WHERE email ?`, u.email).
+		If(u.id == 0, `WHERE email = ?`, u.email).
 		MustExec()
+	clear(u.data)
+}
+
+func (u *userManager) Enable() {
+	quirk.New(u.db).Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
+		Q(`SET active = true`).
+		If(u.id > 0, `WHERE id = ?`, u.id).
+		If(u.id == 0, `WHERE email = ?`, u.email).
+		MustExec()
+	clear(u.data)
+}
+
+func (u *userManager) Disable() {
+	quirk.New(u.db).Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
+		Q(`SET active = false`).
+		If(u.id > 0, `WHERE id = ?`, u.id).
+		If(u.id == 0, `WHERE email = ?`, u.email).
+		MustExec()
+	clear(u.data)
 }
 
 func (u *userManager) readData(data UserReader) {

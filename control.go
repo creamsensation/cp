@@ -34,7 +34,6 @@ type Control interface {
 	Dev() dev.Dev
 	Email() Email
 	Error() ErrorHandler
-	Event() Event
 	File() filesystem.Filesystem
 	Flash() FlashMessenger
 	Generate() Generator
@@ -83,9 +82,9 @@ func createControl(core *core, request *http.Request, response http.ResponseWrit
 		statusCode: new(int),
 		vars:       make(map[string]string),
 	}
-	if core.assetter != nil {
+	if core.assetsReader != nil {
 		c.assets = assets.New(
-			core.config.Assets.RootPath, core.assetter.Styles, make([]string, 0), core.assetter.Scripts,
+			core.config.Assets.RootPath, core.assetsReader.styles, make([]string, 0), core.assetsReader.scripts,
 		)
 	}
 	c.flash = &flashMessenger{control: c}
@@ -159,10 +158,6 @@ func (c *control) Email() Email {
 
 func (c *control) Error() ErrorHandler {
 	return createErrorHandler(c)
-}
-
-func (c *control) Event() Event {
-	return c.core.event
 }
 
 func (c *control) File() filesystem.Filesystem {

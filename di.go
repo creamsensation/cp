@@ -47,9 +47,6 @@ func provide[T any](c *control, depType reflect.Type, name ...string) any {
 		n = name[0]
 	}
 	dep, ok := c.core.deps[n]
-	if dep == nil || (!ok && depType == nil) {
-		return nil
-	}
 	if !ok && depType != nil && depType.Kind() == reflect.Ptr {
 		provider := reflect.New(depType.Elem())
 		if !provider.IsValid() ||
@@ -57,6 +54,9 @@ func provide[T any](c *control, depType reflect.Type, name ...string) any {
 			return nil
 		}
 		return provider.Interface().(Provider).Provide(c)
+	}
+	if dep == nil || (!ok && depType == nil) {
+		return nil
 	}
 	if dep.singleton {
 		return dep.provider

@@ -26,10 +26,10 @@ type Config struct {
 
 func Parse(dir string) Config {
 	var result Config
-	if strings.HasPrefix(dir, "/") {
-		dir = strings.TrimPrefix(dir, "/")
-	}
 	dir = fmt.Sprintf("%s/%s", dir, env.Get())
+	if !strings.HasPrefix(dir, "/") && !strings.HasPrefix(dir, "./") {
+		dir = "/" + dir
+	}
 	parsePart(dir, "app", &result)
 	parsePart(dir, "assets", &result)
 	parsePart(dir, "cache", &result)
@@ -50,6 +50,10 @@ func Parse(dir string) Config {
 
 func parsePart(dir string, name string, data any) {
 	path := fmt.Sprintf("%s/%s.yaml", dir, name)
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return
+	}
 	configBytes, err := os.ReadFile(path)
 	if err != nil {
 		fmt.Println(err)

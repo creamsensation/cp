@@ -16,6 +16,7 @@ import (
 type Email interface {
 	Attachment(name string, data []byte) Email
 	Body(nodes ...gox.Node) Email
+	Bytes() []byte
 	Copy(values ...string) Email
 	From(from string) Email
 	HiddenCopy(values ...string) Email
@@ -23,6 +24,7 @@ type Email interface {
 	Title(title string) Email
 	To(to ...string) Email
 	Send()
+	String() string
 }
 
 type email struct {
@@ -52,6 +54,10 @@ func (e *email) Body(nodes ...gox.Node) Email {
 	return e
 }
 
+func (e *email) Bytes() []byte {
+	return e.createBody()
+}
+
 func (e *email) Copy(values ...string) Email {
 	e.toCopy = values
 	return e
@@ -78,6 +84,10 @@ func (e *email) Send() {
 			e.createBody(),
 		),
 	)
+}
+
+func (e *email) String() string {
+	return string(e.createBody())
 }
 
 func (e *email) Subject(value string) Email {

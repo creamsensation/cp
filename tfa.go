@@ -19,7 +19,7 @@ type TfaManager interface {
 	PendingVerification() bool
 	Enable()
 	Disable()
-	Verify(otp string) bool
+	Verify(otp string) (string, bool)
 	CreateQrImage() gox.Node
 }
 
@@ -48,27 +48,26 @@ func (m tfaManager) Enable() {
 		MustExec()
 }
 
-func (m tfaManager) Verify(otp string) bool {
+func (m tfaManager) Verify(otp string) (string, bool) {
 	token := m.Cookie().Get(cookieName.Tfa)
 	if len(token) == 0 {
-		return false
+		return "", false
 	}
 	var u User
 	m.Cache().Get(token, &u)
 	if u.Id == 0 {
-		return false
+		return "", false
 	}
 	m.DB().
 		Q(fmt.Sprintf(`SELECT id, email, roles, tfa_secret FROM %s`, usersTable)).
 		Q("WHERE id = ?", u.Id).
 		MustExec(&u)
 	if valid := totp.Validate(otp, u.TfaSecret.String); !valid {
-		return false
+		return "", false
 	}
-	m.Auth().Session().New(u)
 	m.Cache().Set(token, "", time.Millisecond)
 	m.Cookie().Set(cookieName.Tfa, "", time.Millisecond)
-	return true
+	return m.Auth().Session().New(u), true
 }
 
 func (m tfaManager) Disable() {

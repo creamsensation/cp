@@ -35,10 +35,10 @@ const (
 	watchInterval = time.Second
 )
 
-func New() Client {
+func New(dir string) Client {
 	m := &memory{
 		data: make(map[string]memoryData),
-		dir:  getDir(),
+		dir:  getDir(dir),
 	}
 	go m.load()
 	go m.watch()
@@ -173,8 +173,7 @@ func (m *memory) deleteTempFile(key string) error {
 	return nil
 }
 
-func getDir() string {
-	tmpDir := os.TempDir()
+func getDir(tmpDir string) string {
 	if strings.HasSuffix(tmpDir, "/") {
 		tmpDir = strings.TrimSuffix(tmpDir, "/")
 	}

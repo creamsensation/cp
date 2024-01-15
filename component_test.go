@@ -6,7 +6,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	
 	"github.com/creamsensation/cp/internal/route"
+	"github.com/creamsensation/gox"
 )
+
+type testComponent struct {
+	Component
+}
+
+func (c *testComponent) Name() string {
+	return "test"
+}
+
+func (c *testComponent) Model() {
+}
+
+func (c *testComponent) Node() gox.Node {
+	return gox.Text("test")
+}
 
 func TestCreatePrefixedComponentName(t *testing.T) {
 	type testCase struct {

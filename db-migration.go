@@ -26,13 +26,12 @@ var (
 	}
 )
 
-func CreateMigrationsConnections(configDir string) map[string]*quirk.DB {
-	cfg := config.Parse(configDir)
+func CreateMigrationsConnections(config config.Databases) map[string]*quirk.DB {
 	result := make(map[string]*quirk.DB)
-	if len(cfg.Database) == 0 {
+	if len(config) == 0 {
 		return result
 	}
-	for name, dbConfig := range cfg.Database {
+	for name, dbConfig := range config {
 		result[name] = connect.Database(dbConfig)
 	}
 	return result

@@ -13,8 +13,8 @@ type localFilesystem struct {
 }
 
 func CreateLocalFilesystem(dir string) Filesystem {
-	if strings.HasPrefix(dir, "/") {
-		dir = strings.TrimPrefix(dir, "/")
+	if !strings.HasPrefix(dir, "/") && !strings.HasPrefix(dir, "./") {
+		dir = "/" + dir
 	}
 	s := &localFilesystem{
 		dir: dir,
@@ -68,6 +68,9 @@ func (s *localFilesystem) Remove(path string) error {
 func (s *localFilesystem) createPath(path string) string {
 	if strings.HasPrefix(path, "/") {
 		path = strings.TrimPrefix(path, "/")
+	}
+	if strings.HasPrefix(path, "./") {
+		path = strings.TrimPrefix(path, "./")
 	}
 	return fmt.Sprintf("%s/%s", s.dir, path)
 }

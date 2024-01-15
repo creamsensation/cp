@@ -3,17 +3,19 @@ package config
 import "time"
 
 type Security struct {
-	Csrf struct {
-		Enabled  bool          `yaml:"enabled"`
-		Duration time.Duration `yaml:"duration"`
-	} `yaml:"csrf"`
-	Firewall  map[string]securityFirewall `yaml:"firewall"`
-	RateLimit securityRateLimit           `yaml:"rate-limit"`
-	Role      map[string]securityRole     `yaml:"role"`
-	Session   securitySession             `yaml:"session"`
+	Csrf      SecurityCsrf                `yaml:"csrf"`
+	Firewall  map[string]SecurityFirewall `yaml:"firewall"`
+	RateLimit SecurityRateLimit           `yaml:"rate-limit"`
+	Role      map[string]SecurityRole     `yaml:"role"`
+	Session   SecuritySession             `yaml:"session"`
 }
 
-type securityFirewall struct {
+type SecurityCsrf struct {
+	Enabled  bool          `yaml:"enabled"`
+	Duration time.Duration `yaml:"duration"`
+}
+
+type SecurityFirewall struct {
 	Enabled       bool     `yaml:"enabled"`
 	Invert        bool     `yaml:"invert"`
 	Modules       []string `yaml:"modules"`
@@ -25,16 +27,16 @@ type securityFirewall struct {
 	Secret        string   `yaml:"secret"`
 }
 
-type securityRateLimit struct {
+type SecurityRateLimit struct {
 	Enabled  bool          `yaml:"enabled"`
 	Attempts int           `yaml:"attempts"`
 	Interval time.Duration `yaml:"interval"`
 }
 
-type securityRole struct {
+type SecurityRole struct {
 	Super bool `yaml:"super"`
 }
 
-type securitySession struct {
+type SecuritySession struct {
 	Duration time.Duration `yaml:"duration"`
 }
