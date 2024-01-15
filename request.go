@@ -60,10 +60,10 @@ func (r request) Is() requester.Is {
 }
 
 func (r request) Lang() string {
-	if !r.core.router.localized {
-		return ""
+	var lc string
+	if r.config.Router.Localized {
+		lc = Var[string](r.control, requestVar.Lang)
 	}
-	lc := Var[string](r.control, requestVar.Lang)
 	if len(lc) == 0 {
 		return r.Cookie().Get(cookieName.Lang)
 	}
