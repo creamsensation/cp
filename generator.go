@@ -125,13 +125,14 @@ func (g generator) Query(arg Map) string {
 }
 
 func (g generator) SwitchLang(langCode string, overwrite ...Map) string {
+	if !g.control.core.languagesExist() {
+		return g.control.Request().Path()
+	}
 	if !g.control.core.router.localized {
+		g.control.Cookie().Set(cookieName.Lang, langCode, expiration.Lang)
 		return g.control.Request().Path()
 	}
 	var vars Map
-	if !g.control.core.router.localized {
-		return fmt.Sprintf("<%s:router is not localized>", langCode)
-	}
 	currentLang := Var[string](g.control, requestVar.Lang)
 	index := -1
 	for lc, lr := range g.control.core.router.localizedRoutes {
