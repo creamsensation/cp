@@ -25,6 +25,7 @@ import (
 type Core interface {
 	Container(dependencies ...*Dependency) Core
 	Controllers(controllers ...Controller) Core
+	Form() Form
 	Middleware(middlewares ...handler.Fn) Core
 	Modules(modules ...Module) Core
 	Routes(builders ...*route.Builder) Core
