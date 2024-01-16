@@ -17,7 +17,7 @@ type FlashMessenger interface {
 type AddFlashMessage interface {
 	Success(title string, subtitle ...string)
 	Warning(title string, subtitle ...string)
-	Error(err error, subtitle ...string)
+	Error(title string, subtitle ...string)
 }
 
 type flashMessenger struct {
@@ -68,8 +68,8 @@ func (n *flashMessenger) Warning(title string, subtitle ...string) {
 	n.append(FlashMessageTypeWarning, title, subtitle...)
 }
 
-func (n *flashMessenger) Error(err error, subtitle ...string) {
-	n.append(FlashMessageTypeError, err.Error(), subtitle...)
+func (n *flashMessenger) Error(title string, subtitle ...string) {
+	n.append(FlashMessageTypeError, title, subtitle...)
 }
 
 func (n *flashMessenger) load() {

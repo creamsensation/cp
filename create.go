@@ -1,6 +1,7 @@
 package cp
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	
@@ -49,6 +50,13 @@ func (c create) FormBuilder(fields ...*form.FieldBuilder) *form.Builder {
 		Method(method).
 		Action(c.Generate().Link().Name(c.control.route.Name)).
 		Request(c.control.request)
+	if len(c.core.form.errors) > 0 {
+		errs := make(map[string]error)
+		for k, e := range c.core.form.errors {
+			errs[k] = errors.New(c.Translate(e))
+		}
+		f.Errors(errs)
+	}
 	if isCsrfEnabled {
 		name := fmt.Sprintf("%s-%s", c.control.route.Name, uniuri.New())
 		token := c.control.Csrf().Create(name, c.control.Request().Ip(), c.control.Request().UserAgent())

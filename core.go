@@ -38,6 +38,7 @@ type core struct {
 	databases    map[string]*quirk.DB
 	deps         map[string]*Dependency
 	devtool      *devtool.Devtool
+	form         *formManager
 	fs           *filesystem.FS
 	http         *http.Server
 	memory       memory.Client
@@ -56,6 +57,7 @@ func New(configDir string) Core {
 		databases:    make(map[string]*quirk.DB),
 		deps:         make(map[string]*Dependency),
 		devtool:      devtool.New(),
+		form:         new(formManager),
 		translator:   translator.New(configDir),
 		ui:           createUi(),
 	}
@@ -87,6 +89,10 @@ func (c *core) Controllers(controllers ...Controller) Core {
 		createController(c, cl).run()
 	}
 	return c
+}
+
+func (c *core) Form() Form {
+	return c.form
 }
 
 func (c *core) Middleware(middlewares ...handler.Fn) Core {
