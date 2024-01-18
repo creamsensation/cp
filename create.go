@@ -46,9 +46,15 @@ func (c create) FormBuilder(fields ...*form.FieldBuilder) *form.Builder {
 	if c.control.Request().Is().Get() {
 		method = http.MethodPost
 	}
+	vars := make(Map)
+	if len(c.control.vars) > 0 {
+		for k, v := range c.control.vars {
+			vars[k] = v
+		}
+	}
 	f := form.New(fields...).
 		Method(method).
-		Action(c.Generate().Link().Name(c.control.route.Name)).
+		Action(c.Generate().Link().Name(c.control.route.Name, vars)).
 		Request(c.control.request)
 	if len(c.core.form.errors) > 0 {
 		errs := make(map[string]error)

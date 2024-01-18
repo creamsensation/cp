@@ -8,7 +8,7 @@ require (
 	github.com/creamsensation/devtool v0.1.1
 	github.com/creamsensation/form v0.1.2
 	github.com/creamsensation/gox v0.3.1
-	github.com/creamsensation/quirk v0.1.2
+	github.com/creamsensation/quirk v0.1.4
 	github.com/dchest/uniuri v1.2.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/iancoleman/strcase v0.3.0
