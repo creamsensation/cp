@@ -94,11 +94,13 @@ func (r response) Render(nodes ...gox.Node) Result {
 		if env.Development() {
 			nodes = append(nodes, r.control.Dev().Tool())
 		}
-		for i, n := range nodes {
-			if !r.control.hxResponse.Exists(gox.GetAttribute[string](n, "id")) {
-				continue
+		if r.control.hxResponse.Oob {
+			for i, n := range nodes {
+				if !r.control.hxResponse.Exists(gox.GetAttribute[string](n, "id")) {
+					continue
+				}
+				nodes[i] = gox.Append(n, htmx.SwapOob())
 			}
-			nodes[i] = gox.Append(n, htmx.SwapOob())
 		}
 		r.control.hxResponse.PrepareHeaders()
 		return result.CreateHtml(gox.Render(nodes...), *r.control.statusCode)

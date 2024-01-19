@@ -19,6 +19,7 @@ type Response interface {
 	TriggerAfterSwap(event ...string) Response
 	Update(id string) Options
 	Exists(target ...string) bool
+	UseOob() Response
 }
 
 type HxResponse struct {
@@ -33,6 +34,7 @@ type HxResponse struct {
 	trigger            string
 	triggerAfterSettle string
 	triggerAfterSwap   string
+	Oob                bool
 }
 
 func New(request *http.Request, response http.ResponseWriter) *HxResponse {
@@ -102,6 +104,11 @@ func (r *HxResponse) Update(id string) Options {
 	}
 	r.options.target = id
 	return r.options
+}
+
+func (r *HxResponse) UseOob() Response {
+	r.Oob = true
+	return r
 }
 
 func (r *HxResponse) PrepareHeaders() {
