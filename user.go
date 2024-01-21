@@ -83,6 +83,10 @@ const (
 	usersTable = "users"
 )
 
+const (
+	paramPrefix = "@"
+)
+
 var (
 	argon = argon2.DefaultConfig()
 )
@@ -212,13 +216,13 @@ func (u *userManager) insertValues() (string, string) {
 	placeholders := []string{quirk.Default}
 	for name := range u.data {
 		columns = append(columns, name)
-		placeholders = append(placeholders, ":"+name)
+		placeholders = append(placeholders, paramPrefix+name)
 	}
 	switch u.driverName {
 	case quirk.Postgres:
 		if len(u.data) > 0 {
 			columns = append(columns, quirk.Vectors)
-			placeholders = append(placeholders, ":"+quirk.Vectors)
+			placeholders = append(placeholders, paramPrefix+quirk.Vectors)
 		}
 	}
 	columns = append(columns, UserColumnLastActivity)
@@ -259,7 +263,7 @@ func (u *userManager) updateValues() string {
 		if column == quirk.Id {
 			continue
 		}
-		result = append(result, fmt.Sprintf("%s = :%s", column, column))
+		result = append(result, fmt.Sprintf("%s = %s%s", column, paramPrefix, column))
 	}
 	result = append(result, fmt.Sprintf("%s = %s", UserColumnLastActivity, quirk.CurrentTimestamp))
 	result = append(result, fmt.Sprintf("%s = %s", quirk.UpdatedAt, quirk.CurrentTimestamp))
