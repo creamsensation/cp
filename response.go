@@ -5,11 +5,12 @@ import (
 	"net/http"
 	"strings"
 	
+	"github.com/creamsensation/gox"
+	htmx "github.com/creamsensation/hx"
+	
 	"github.com/creamsensation/cp/env"
 	"github.com/creamsensation/cp/internal/responder/hx"
 	"github.com/creamsensation/cp/internal/result"
-	"github.com/creamsensation/gox"
-	htmx "github.com/creamsensation/hx"
 )
 
 type Result interface{}
@@ -26,6 +27,7 @@ type Response interface {
 	Render(nodes ...gox.Node) Result
 	Status(statusCode int) Response
 	Text(text string) Result
+	Empty() Result
 }
 
 type response struct {
@@ -94,13 +96,11 @@ func (r response) Render(nodes ...gox.Node) Result {
 		if env.Development() {
 			nodes = append(nodes, r.control.Dev().Tool())
 		}
-		if r.control.hxResponse.Oob {
-			for i, n := range nodes {
-				if !r.control.hxResponse.Exists(gox.GetAttribute[string](n, "id")) {
-					continue
-				}
-				nodes[i] = gox.Append(n, htmx.SwapOob())
+		for i, n := range nodes {
+			if !r.control.hxResponse.Exists(gox.GetAttribute[string](n, "id")) {
+				continue
 			}
+			nodes[i] = gox.Append(n, htmx.SwapOob())
 		}
 		r.control.hxResponse.PrepareHeaders()
 		return result.CreateHtml(gox.Render(nodes...), *r.control.statusCode)
@@ -118,6 +118,13 @@ func (r response) Text(text string) Result {
 		*r.control.statusCode = http.StatusOK
 	}
 	return result.CreateText(text, *r.control.statusCode)
+}
+
+func (r response) Empty() Result {
+	if r.control.main != nil || *r.control.statusCode == 0 {
+		*r.control.statusCode = http.StatusOK
+	}
+	return result.CreateText("", *r.control.statusCode)
 }
 
 func (r response) shouldUseHx() bool {
