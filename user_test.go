@@ -2,9 +2,9 @@ package cp
 
 import (
 	"testing"
-	
+
 	"github.com/stretchr/testify/assert"
-	
+
 	"github.com/creamsensation/cp/internal/tests"
 	"github.com/creamsensation/quirk"
 )
@@ -37,9 +37,7 @@ func TestUser(t *testing.T) {
 	)
 	t.Run(
 		"get", func(t *testing.T) {
-			var r User
-			um.Get(&r)
-			assert.True(t, r.Id > 0)
+			assert.True(t, um.Get().Id > 0)
 		},
 	)
 	t.Run(
@@ -47,24 +45,17 @@ func TestUser(t *testing.T) {
 			data := User{
 				Roles: []string{"admin"},
 			}
-			data.WithColumns("roles")
-			um.Update(data)
-			var r User
-			um.Get(&r)
-			assert.Equal(t, []string{"admin"}, r.Roles)
+			um.Update(data, "roles")
+			assert.Equal(t, []string{"admin"}, um.Get().Roles)
 		},
 	)
 	t.Run(
 		"disable enable", func(t *testing.T) {
-			var r User
-			um.Get(&r)
-			assert.True(t, r.Active)
+			assert.True(t, um.Get().Active)
 			um.Disable()
-			um.Get(&r)
-			assert.False(t, r.Active)
+			assert.False(t, um.Get().Active)
 			um.Enable()
-			um.Get(&r)
-			assert.True(t, r.Active)
+			assert.True(t, um.Get().Active)
 		},
 	)
 }

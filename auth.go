@@ -3,10 +3,11 @@ package cp
 import (
 	"fmt"
 	"time"
-	
+
 	"github.com/dchest/uniuri"
 	"github.com/matthewhartstonge/argon2"
-	
+
+	"github.com/creamsensation/cp/internal/constant/cacheKey"
 	"github.com/creamsensation/cp/internal/constant/cookieName"
 	"github.com/creamsensation/cp/internal/constant/naming"
 )
@@ -15,7 +16,8 @@ type Auth interface {
 	Session() SessionManager
 	Tfa() TfaManager
 	User(dbname ...string) UserManager
-	
+	CustomUser(id int, email string, dbname ...string) UserManager
+
 	In(email, password string) AuthIn
 	Out()
 }
@@ -60,11 +62,20 @@ func (a auth) User(dbname ...string) UserManager {
 	return CreateUserManager(a.core.databases[dbn], s.Id, s.Email)
 }
 
+func (a auth) CustomUser(id int, email string, dbname ...string) UserManager {
+	dbn := naming.Main
+	if len(dbname) > 0 {
+		dbn = dbname[0]
+	}
+	return CreateUserManager(a.core.databases[dbn], id, email)
+}
+
 func (a auth) In(email, password string) AuthIn {
 	var r User
 	err := a.DB().
 		Q(fmt.Sprintf(`SELECT id, email, roles, password, tfa FROM %s`, usersTable)).
 		Q("WHERE email = ?", email).
+		Q("AND active = true").
 		Exec(&r)
 	if err != nil {
 		return authIn{
@@ -90,7 +101,7 @@ func (a auth) In(email, password string) AuthIn {
 	}
 	if r.Tfa {
 		token := uniuri.New()
-		a.Cache().Set(token, User{Id: r.Id}, time.Minute*5)
+		a.Cache().Set(cacheKey.Tfa+":"+token, User{Id: r.Id}, time.Minute*5)
 		a.Cookie().Set(cookieName.Tfa, token, time.Minute*5)
 		return authIn{
 			token: token,

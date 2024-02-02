@@ -6,11 +6,11 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
-	
+
 	"github.com/dchest/uniuri"
 	"github.com/pquerna/otp/totp"
 	"github.com/stretchr/testify/assert"
-	
+
 	"github.com/creamsensation/cp/internal/config"
 	"github.com/creamsensation/cp/internal/constant/cacheAdapter"
 	"github.com/creamsensation/cp/internal/constant/cookieName"
@@ -49,8 +49,7 @@ func TestTfa(t *testing.T) {
 			Password: "123456789",
 		},
 	)
-	var r User
-	um.Get(&r)
+	r := um.Get()
 	assert.True(t, r.Id > 0)
 	t.Cleanup(
 		func() {

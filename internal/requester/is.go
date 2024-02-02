@@ -3,7 +3,8 @@ package requester
 import (
 	"net/http"
 	"regexp"
-	
+
+	"github.com/creamsensation/cp/internal/constant/queryKey"
 	"github.com/creamsensation/hx"
 )
 
@@ -14,6 +15,7 @@ type Is interface {
 	Patch() bool
 	Delete() bool
 	Hx() bool
+	Action() bool
 	Localized() bool
 }
 
@@ -51,6 +53,10 @@ func (i is) Delete() bool {
 
 func (i is) Hx() bool {
 	return i.Header.Get(hx.RequestHeaderRequest) == "true"
+}
+
+func (i is) Action() bool {
+	return i.Hx() && i.Request.URL.Query().Get(queryKey.Action) != ""
 }
 
 func (i is) Localized() bool {

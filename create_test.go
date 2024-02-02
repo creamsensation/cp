@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	
+
 	"github.com/stretchr/testify/assert"
-	
+
 	"github.com/creamsensation/form"
 	"github.com/creamsensation/gox"
 )
@@ -15,6 +15,7 @@ func TestCreate(t *testing.T) {
 	c := &create{
 		control: &control{
 			core: &core{
+				form:   createFormManager(),
 				router: createRouter(&core{}),
 			},
 			request: httptest.NewRequest(http.MethodGet, "/test", nil),

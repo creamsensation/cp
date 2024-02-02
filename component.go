@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	
+
 	"github.com/creamsensation/cp/internal/constant/componentState"
 	"github.com/creamsensation/cp/internal/constant/queryKey"
 	"github.com/creamsensation/cp/internal/querystring"
@@ -37,6 +37,11 @@ const (
 	componentMethodModel = "Model"
 	componentMethodName  = "Name"
 	componentMethodNode  = "Node"
+)
+
+const (
+	componentFieldStateTag = "state"
+	componentFieldStateUse = "true"
 )
 
 var (
@@ -71,7 +76,7 @@ func (l *componentLifecycle) run() *componentLifecycle {
 	cfg := l.control.Config().Component
 	useCacheState := cfg.State == componentState.Cache
 	useQueryState := cfg.State == componentState.Query
-	isAction := len(l.control.Request().Query(queryKey.Action)) > 0
+	isAction := l.control.Request().Is().Action()
 	if useCacheState {
 		l.loadFromCache()
 	}
@@ -146,7 +151,20 @@ func (l *componentLifecycle) callAction() {
 }
 
 func (l *componentLifecycle) loadFromCache() {
-	l.control.State().Get(l.control.component)
+	r := reflect.New(l.cv.Elem().Type())
+	l.control.State().Get(r.Interface())
+	for i := 0; i < l.cv.Elem().NumField(); i++ {
+		field := r.Elem().Field(i)
+		fieldName := r.Elem().Type().Field(i).Name
+		if field.IsZero() || field.Type().String() == componentControlInterfaceName {
+			continue
+		}
+		fieldStruct, ok := r.Elem().Type().FieldByName(fieldName)
+		if ok && fieldStruct.Tag.Get(componentFieldStateTag) != componentFieldStateTag {
+			continue
+		}
+		l.cv.Elem().FieldByName(fieldName).Set(field)
+	}
 }
 
 func (l *componentLifecycle) storeToCache() {
@@ -155,6 +173,10 @@ func (l *componentLifecycle) storeToCache() {
 		field := l.cv.Elem().Field(i)
 		fieldName := l.cv.Elem().Type().Field(i).Name
 		if field.Type().String() == componentControlInterfaceName {
+			continue
+		}
+		fieldStruct, ok := c.Elem().Type().FieldByName(fieldName)
+		if ok && fieldStruct.Tag.Get(componentFieldStateTag) != componentFieldStateTag {
 			continue
 		}
 		c.Elem().FieldByName(fieldName).Set(field)

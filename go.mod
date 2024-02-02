@@ -7,7 +7,7 @@ require (
 	github.com/charmbracelet/lipgloss v0.9.1
 	github.com/creamsensation/devtool v0.1.2
 	github.com/creamsensation/form v0.1.2
-	github.com/creamsensation/gox v0.3.1
+	github.com/creamsensation/gox v0.3.2
 	github.com/creamsensation/quirk v0.1.5
 	github.com/dchest/uniuri v1.2.0
 	github.com/go-redis/redis/v8 v8.11.5

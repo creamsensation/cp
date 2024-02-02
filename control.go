@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	
+
 	"github.com/creamsensation/cp/internal/filesystem"
 	"github.com/creamsensation/cp/internal/util"
 	"github.com/creamsensation/quirk"
-	
+
 	"github.com/creamsensation/cp/env"
 	"github.com/creamsensation/cp/internal/assets"
 	"github.com/creamsensation/cp/internal/config"
@@ -38,7 +38,6 @@ type Control interface {
 	Flash() FlashMessenger
 	Generate() Generator
 	Link(name string, arg ...Map) string
-	Handle() Handle
 	Page() page.Page
 	Request() Request
 	Response() Response
@@ -190,10 +189,6 @@ func (c *control) Link(name string, arg ...Map) string {
 
 func (c *control) Main() Control {
 	return c.main
-}
-
-func (c *control) Handle() Handle {
-	return handle{control: c}
 }
 
 func (c *control) Page() page.Page {

@@ -2,15 +2,20 @@ package cp
 
 import (
 	"fmt"
+	"strings"
 	"time"
-	
+
 	"github.com/dchest/uniuri"
+
+	"github.com/creamsensation/cp/internal/constant/cookieName"
+	"github.com/creamsensation/cp/internal/constant/header"
 )
 
 type Csrf interface {
 	Get(token, name string) Token
-	Create(name, ip, userAgent string) string
+	Create(key, name, ip, userAgent string) string
 	Destroy(token string)
+	Clean()
 }
 
 type csrf struct {
@@ -42,8 +47,9 @@ func (c *csrf) Get(token, name string) Token {
 	return result
 }
 
-func (c *csrf) Create(name, ip, userAgent string) string {
+func (c *csrf) Create(key, name, ip, userAgent string) string {
 	token := uniuri.New()
+	c.Cookie().Set(cookieName.Csrf+"-"+key, token, c.expiration())
 	c.Cache().Set(
 		c.createCsrfKey(token),
 		Token{
@@ -60,6 +66,31 @@ func (c *csrf) Create(name, ip, userAgent string) string {
 
 func (c *csrf) Destroy(token string) {
 	c.Cache().Destroy(c.createCsrfKey(token))
+}
+
+func (c *csrf) Clean() {
+	cookies := c.Request().Header().Get(header.Cookie)
+	if cookies == "" {
+		return
+	}
+	for _, part := range strings.Split(cookies, ";") {
+		part = strings.TrimSpace(part)
+		if !strings.Contains(part, cookieName.Csrf) {
+			continue
+		}
+		if !strings.Contains(part, "=") {
+			continue
+		}
+		if len(part) < strings.Index(part, "=")+1 {
+			continue
+		}
+		name := part[:strings.Index(part, "=")]
+		token := part[strings.Index(part, "=")+1:]
+		c.Destroy(token)
+		if c.Request().Route() != strings.TrimPrefix(name, cookieName.Csrf+"-") {
+			c.Cookie().Destroy(name)
+		}
+	}
 }
 
 func (c *csrf) createCsrfKey(token string) string {

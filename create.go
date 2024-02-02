@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	
+
 	"github.com/dchest/uniuri"
-	
+
 	"github.com/creamsensation/form"
 	"github.com/creamsensation/gox"
 	"github.com/creamsensation/hx"
@@ -46,15 +46,17 @@ func (c create) FormBuilder(fields ...*form.FieldBuilder) *form.Builder {
 	if c.control.Request().Is().Get() {
 		method = http.MethodPost
 	}
-	vars := make(Map)
-	if len(c.control.vars) > 0 {
-		for k, v := range c.control.vars {
-			vars[k] = v
+	link := c.Generate().Link().Name(c.control.route.Name)
+	if len(c.Request().Raw().URL.Query()) > 0 {
+		q := make(Map)
+		for k := range c.Request().Raw().URL.Query() {
+			q[k] = c.Request().Query(k)
 		}
+		link += c.Generate().Query(q)
 	}
 	f := form.New(fields...).
 		Method(method).
-		Action(c.Generate().Link().Name(c.control.route.Name, vars)).
+		Action(link).
 		Request(c.control.request)
 	if len(c.core.form.errors) > 0 {
 		errs := make(map[string]error)
@@ -63,9 +65,11 @@ func (c create) FormBuilder(fields ...*form.FieldBuilder) *form.Builder {
 		}
 		f.Errors(errs)
 	}
-	if isCsrfEnabled {
+	if isCsrfEnabled && !c.control.Request().Is().Action() {
 		name := fmt.Sprintf("%s-%s", c.control.route.Name, uniuri.New())
-		token := c.control.Csrf().Create(name, c.control.Request().Ip(), c.control.Request().UserAgent())
+		token := c.control.Csrf().Create(
+			c.control.route.Name, name, c.control.Request().Ip(), c.control.Request().UserAgent(),
+		)
 		f.Csrf(name, token)
 	}
 	return f

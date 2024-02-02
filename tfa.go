@@ -6,46 +6,44 @@ import (
 	"fmt"
 	"image/png"
 	"time"
-	
+
 	"github.com/dchest/uniuri"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
-	
+
+	"github.com/creamsensation/cp/internal/constant/cacheKey"
 	"github.com/creamsensation/cp/internal/constant/cookieName"
 	"github.com/creamsensation/gox"
 )
 
 type TfaManager interface {
+	GetPendingUserId() int
 	PendingVerification() bool
-	Enable()
-	Disable()
+	Active() bool
+	Enable(id ...int)
+	Disable(id ...int)
 	Verify(otp string) (string, bool)
-	CreateQrImage() gox.Node
+	CreateQrImage(nodes ...gox.Node) gox.Node
 }
 
 type tfaManager struct {
 	*control
 }
 
+func (m tfaManager) GetPendingUserId() int {
+	var u User
+	token := m.Cookie().Get(cookieName.Tfa)
+	m.Cache().Get(cacheKey.Tfa+":"+token, &u)
+	return u.Id
+}
+
 func (m tfaManager) PendingVerification() bool {
 	return len(m.Cookie().Get(cookieName.Tfa)) > 0
 }
 
-func (m tfaManager) Enable() {
-	s := m.Auth().Session().Get()
-	key, err := totp.Generate(
-		totp.GenerateOpts{
-			Issuer:      m.Request().Host(),
-			AccountName: s.Email,
-		},
-	)
-	m.Error().Check(err)
-	codes := uniuri.NewLen(tfaCodesSize)
-	m.DB().
-		Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
-		Q("SET tfa = ?, tfa_codes = ?, tfa_secret = ?, tfa_url = ?", true, codes, key.Secret(), key.String()).
-		Q("WHERE id = ?", s.Id).
-		MustExec()
+func (m tfaManager) Active() bool {
+	u := m.Auth().User().Get()
+	return u.Tfa && len(u.TfaUrl.String) > 0 && len(u.TfaCodes.String) > 0 && len(u.TfaSecret.String) > 0
 }
 
 func (m tfaManager) Verify(otp string) (string, bool) {
@@ -54,7 +52,7 @@ func (m tfaManager) Verify(otp string) (string, bool) {
 		return "", false
 	}
 	var u User
-	m.Cache().Get(token, &u)
+	m.Cache().Get(cacheKey.Tfa+":"+token, &u)
 	if u.Id == 0 {
 		return "", false
 	}
@@ -70,16 +68,34 @@ func (m tfaManager) Verify(otp string) (string, bool) {
 	return m.Auth().Session().New(u), true
 }
 
-func (m tfaManager) Disable() {
-	s := m.Auth().Session().Get()
+func (m tfaManager) Enable(id ...int) {
+	userId := m.getUserId(id...)
+	s := m.Auth().User().Get(userId)
+	key, err := totp.Generate(
+		totp.GenerateOpts{
+			Issuer:      m.Request().Host(),
+			AccountName: s.Email,
+		},
+	)
+	m.Error().Check(err)
+	codes := uniuri.NewLen(tfaCodesSize)
 	m.DB().
 		Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
-		Q("SET tfa = ?, tfa_codes = NULL, tfa_secret = NULL, tfa_url = NULL", false).
-		Q("WHERE id = ?", s.Id).
+		Q("SET tfa = ?, tfa_codes = ?, tfa_secret = ?, tfa_url = ?", true, codes, key.Secret(), key.String()).
+		Q("WHERE id = ?", userId).
 		MustExec()
 }
 
-func (m tfaManager) CreateQrImage() gox.Node {
+func (m tfaManager) Disable(id ...int) {
+	m.DB().
+		Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
+		Q("SET tfa = ?, tfa_codes = NULL, tfa_secret = NULL, tfa_url = NULL", false).
+		Q("WHERE id = ?", m.getUserId(id...)).
+		MustExec()
+	m.Cookie().Destroy(cookieName.Tfa)
+}
+
+func (m tfaManager) CreateQrImage(nodes ...gox.Node) gox.Node {
 	var u User
 	s := m.Auth().Session().Get()
 	err := m.DB().
@@ -105,5 +121,18 @@ func (m tfaManager) CreateQrImage() gox.Node {
 		gox.Src("data:image/png;base64,"+base64.StdEncoding.EncodeToString(buffer.Bytes())),
 		gox.Alt(fmt.Sprintf("tfa-qr-user-%d", s.Id)),
 		gox.Style(gox.Text(fmt.Sprintf("width:%[1]dpx;height:%[1]dpx;", tfaImgSize))),
+		gox.Fragment(nodes...),
 	)
+}
+
+func (m tfaManager) getUserId(id ...int) int {
+	var userId int
+	idn := len(id)
+	if idn == 0 {
+		userId = m.Auth().Session().Get().Id
+	}
+	if idn > 0 {
+		userId = id[0]
+	}
+	return userId
 }

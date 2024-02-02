@@ -2,7 +2,7 @@ package cp
 
 import (
 	"fmt"
-	
+
 	"github.com/creamsensation/cp/internal/config"
 	"github.com/creamsensation/cp/internal/connect"
 	"github.com/creamsensation/quirk"
@@ -10,17 +10,17 @@ import (
 
 var (
 	pgUserFields = []quirk.Field{
-		{Name: quirk.Id, Props: "serial"},
-		{Name: UserColumnActive, Props: "bool not null default false"},
-		{Name: UserColumnRoles, Props: "varchar[]"},
-		{Name: UserColumnEmail, Props: "varchar(255) not null"},
-		{Name: UserColumnPassword, Props: "varchar(128) not null"},
-		{Name: UserColumnTfa, Props: "bool not null default false"},
-		{Name: UserColumnTfaSecret, Props: "varchar(255)"},
-		{Name: UserColumnTfaCodes, Props: "varchar(255)"},
-		{Name: UserColumnTfaUrl, Props: "varchar(255)"},
+		{Name: quirk.Id, Props: "serial primary key"},
+		{Name: UserActive, Props: "bool not null default false"},
+		{Name: UserRoles, Props: "varchar[]"},
+		{Name: UserEmail, Props: "varchar(255) not null"},
+		{Name: UserPassword, Props: "varchar(128) not null"},
+		{Name: UserTfa, Props: "bool not null default false"},
+		{Name: UserTfaSecret, Props: "varchar(255)"},
+		{Name: UserTfaCodes, Props: "varchar(255)"},
+		{Name: UserTfaUrl, Props: "varchar(255)"},
 		{Name: quirk.Vectors, Props: "tsvector not null default ''"},
-		{Name: UserColumnLastActivity, Props: "timestamp not null default current_timestamp"},
+		{Name: UserLastActivity, Props: "timestamp not null default current_timestamp"},
 		{Name: quirk.CreatedAt, Props: "timestamp not null default current_timestamp"},
 		{Name: quirk.UpdatedAt, Props: "timestamp not null default current_timestamp"},
 	}

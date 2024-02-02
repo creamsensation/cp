@@ -1,14 +1,17 @@
 package cp
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"reflect"
-	
+	"sync"
+	"time"
+
 	"github.com/go-redis/redis/v8"
-	
+
 	"github.com/creamsensation/cp/internal/cache/memory"
 	"github.com/creamsensation/cp/internal/config"
 	"github.com/creamsensation/cp/internal/connect"
@@ -58,7 +61,7 @@ func New(configDir string) Core {
 		databases:    make(map[string]*quirk.DB),
 		deps:         make(map[string]*Dependency),
 		devtool:      devtool.New(),
-		form:         new(formManager),
+		form:         createFormManager(),
 		translator:   translator.New(configDir),
 		ui:           createUi(),
 	}
@@ -135,12 +138,19 @@ func (c *core) Ui() Ui {
 }
 
 func (c *core) onInit() {
+	var wg sync.WaitGroup
+	wg.Add(4)
 	if c.languagesExist() {
-		go c.translator.Prepare()
+		go func() {
+			defer wg.Done()
+			c.translator.Prepare()
+		}()
 	}
-	go c.createCacheConnection()
-	go c.createDatabasesConnections()
-	go c.createFilesystem()
+	go c.createCacheConnection(&wg)
+	go c.createDatabasesConnections(&wg)
+	go c.createFilesystem(&wg)
+	go c.pingServicesContinuously()
+	wg.Wait()
 }
 
 func (c *core) beforeServe() {
@@ -154,7 +164,8 @@ func (c *core) createServer() {
 	}
 }
 
-func (c *core) createCacheConnection() {
+func (c *core) createCacheConnection(wg *sync.WaitGroup) {
+	defer wg.Done()
 	switch c.config.Cache.Adapter {
 	case cacheAdapter.Memory:
 		c.memory = memory.New(os.TempDir())
@@ -163,13 +174,15 @@ func (c *core) createCacheConnection() {
 	}
 }
 
-func (c *core) createDatabasesConnections() {
+func (c *core) createDatabasesConnections(wg *sync.WaitGroup) {
+	defer wg.Done()
 	for name, item := range c.config.Database {
 		c.databases[name] = connect.Database(item)
 	}
 }
 
-func (c *core) createFilesystem() {
+func (c *core) createFilesystem(wg *sync.WaitGroup) {
+	defer wg.Done()
 	cfg := c.config.Filesystem
 	c.fs = &filesystem.FS{
 		Driver:      cfg.Driver,
@@ -194,4 +207,15 @@ func (c *core) languagesExist() bool {
 		}
 	}
 	return false
+}
+
+func (c *core) pingServicesContinuously() {
+	for {
+		time.Sleep(time.Minute * 15)
+		ctx := context.Background()
+		c.redis.Ping(ctx)
+		for _, datatabase := range c.databases {
+			_ = datatabase.Ping()
+		}
+	}
 }

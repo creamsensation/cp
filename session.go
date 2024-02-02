@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"slices"
 	"time"
-	
+
 	"github.com/dchest/uniuri"
-	
+
 	"github.com/creamsensation/cp/internal/constant/cacheKey"
 	"github.com/creamsensation/cp/internal/constant/cookieName"
 	"github.com/creamsensation/cp/internal/session"
@@ -15,15 +15,9 @@ import (
 type SessionManager interface {
 	Exists() bool
 	Get() session.Session
-	New(user SessionReader) string
+	New(user User) string
 	Renew()
 	Destroy()
-}
-
-type SessionReader interface {
-	GetId() int
-	GetEmail() string
-	GetRoles() []string
 }
 
 type sessionManager struct {
@@ -46,7 +40,7 @@ func (s sessionManager) Get() session.Session {
 	return r
 }
 
-func (s sessionManager) New(user SessionReader) string {
+func (s sessionManager) New(user User) string {
 	token := uniuri.New()
 	duration := s.config.Security.Session.Duration
 	if duration.Hours() == 0 {
@@ -63,7 +57,7 @@ func (s sessionManager) Renew() {
 		return
 	}
 	ss := getSession(s.control)
-	if ss.Ip != s.control.Request().Ip() || ss.UserAgent != s.control.Request().UserAgent() {
+	if ss.Id == 0 || ss.Ip != s.control.Request().Ip() || ss.UserAgent != s.control.Request().UserAgent() {
 		return
 	}
 	duration := s.config.Security.Session.Duration
@@ -84,14 +78,14 @@ func (s sessionManager) getKey(token string) string {
 	return createSessionKey(token)
 }
 
-func (s sessionManager) createSession(user SessionReader) session.Session {
+func (s sessionManager) createSession(user User) session.Session {
 	return session.Session{
-		Id:        user.GetId(),
-		Email:     user.GetEmail(),
+		Id:        user.Id,
+		Email:     user.Email,
 		Ip:        s.Request().Ip(),
 		UserAgent: s.Request().UserAgent(),
-		Roles:     user.GetRoles(),
-		Super:     s.containsSuperRole(user.GetRoles()...),
+		Roles:     user.Roles,
+		Super:     s.containsSuperRole(user.Roles...),
 	}
 }
 

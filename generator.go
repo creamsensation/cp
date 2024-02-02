@@ -3,7 +3,7 @@ package cp
 import (
 	"fmt"
 	"strings"
-	
+
 	"github.com/creamsensation/cp/internal/constant/componentState"
 	"github.com/creamsensation/cp/internal/constant/cookieName"
 	"github.com/creamsensation/cp/internal/constant/expiration"
@@ -11,12 +11,20 @@ import (
 	"github.com/creamsensation/cp/internal/constant/requestVar"
 	"github.com/creamsensation/cp/internal/querystring"
 	"github.com/creamsensation/cp/internal/route"
+	"github.com/creamsensation/form"
+	"github.com/creamsensation/gox"
+	"github.com/creamsensation/hx"
 )
 
 type Generator interface {
+	Hx() HxGenerator
 	Link() LinkGenerator
 	Query(arg Map) string
 	Url() UrlGenerator
+}
+
+type HxGenerator interface {
+	Csrf(key, name string) gox.Node
 }
 
 type LinkGenerator interface {
@@ -57,7 +65,7 @@ func (g generator) Action(action string, arg ...Map) string {
 	args := make(Map)
 	if len(arg) > 0 {
 		args = arg[0]
-		for k, v := range args {
+		for k, v := range arg[0] {
 			qm[k] = v
 		}
 	}
@@ -81,6 +89,18 @@ func (g generator) Asset(path string) string {
 	return fmt.Sprintf("/%s/%s", g.control.config.Assets.PublicPath, path)
 }
 
+func (g generator) Csrf(key, name string) gox.Node {
+	token := g.control.Csrf().Create(key, name, g.control.Request().Ip(), g.control.Request().UserAgent())
+	return gox.If(
+		g.control.config.Security.Csrf.Enabled,
+		hx.Vals(fmt.Sprintf(`{"%s":"%s","%s":"%s"}`, form.CsrfName, name, form.CsrfToken, token)),
+	)
+}
+
+func (g generator) Hx() HxGenerator {
+	return g
+}
+
 func (g generator) Link() LinkGenerator {
 	return g
 }
@@ -92,11 +112,9 @@ func (g generator) Name(name string, arg ...Map) string {
 	if g.control.Request().Is().Localized() {
 		if len(arg) == 0 {
 			arg = make([]Map, 1)
-			arg[0] = Map{requestVar.Lang: g.control.Request().Lang()}
+			arg[0] = make(Map)
 		}
-		if len(arg) > 0 {
-			arg[0][requestVar.Lang] = g.control.Request().Lang()
-		}
+		arg[0][requestVar.Lang] = g.control.Request().Lang()
 		localizedRoutes, ok := g.control.core.router.localizedRoutes[g.control.Request().Lang()]
 		if !ok {
 			return name
@@ -187,6 +205,10 @@ func (g generator) generateLink(routes []route.Route, name string, args ...Map) 
 	shouldHaveController := strings.Count(name, linkLevelDivider) >= 1
 	shouldAddModulePrefix := len(g.control.route.Module) > 0 && !shouldHaveModule
 	shouldAddControllerPrefix := len(g.control.route.Controller) > 0 && !shouldHaveController
+	if len(args) == 0 {
+		args = []Map{}
+	}
+	arg := g.fillLinkArgsWithRequestVars(args...)
 	for _, rt := range routes {
 		if !strings.HasSuffix(rt.Name, name) {
 			continue
@@ -200,13 +222,9 @@ func (g generator) generateLink(routes []route.Route, name string, args ...Map) 
 		if name != rt.Name {
 			continue
 		}
-		if len(args) == 0 {
-			return rt.Path, true
-		}
 		if len(rt.VarsPlaceholders) == 0 {
 			return rt.Path, true
 		}
-		arg := args[0]
 		for routeVarName, routeVarPlaceholder := range rt.VarsPlaceholders {
 			if v, ok := arg[routeVarName]; ok {
 				rt.Path = strings.Replace(rt.Path, routeVarPlaceholder, fmt.Sprintf("%v", v), 1)
@@ -215,4 +233,14 @@ func (g generator) generateLink(routes []route.Route, name string, args ...Map) 
 		return rt.Path, true
 	}
 	return "/" + name, false
+}
+
+func (g generator) fillLinkArgsWithRequestVars(arg ...Map) Map {
+	result := convertMap(g.control.vars)
+	if len(arg) > 0 {
+		for k, v := range arg[0] {
+			result[k] = v
+		}
+	}
+	return result
 }

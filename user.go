@@ -2,39 +2,25 @@ package cp
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"time"
-	
+
 	"github.com/matthewhartstonge/argon2"
-	
+
 	"github.com/creamsensation/quirk"
 )
 
 type UserManager interface {
-	Get(w UserWriter)
-	Create(r UserReader) int
-	Update(r UserReader)
-	Enable()
-	Disable()
-}
-
-type UserReader interface {
-	GetId() int
-	GetActive() bool
-	GetRoles() []string
-	GetEmail() string
-	GetPassword() string
-	GetTfa() bool
-	GetTfaSecret() string
-	GetTfaCodes() string
-	GetCustomFields() []UserField
-	GetColumns() []string
-}
-
-type UserWriter interface {
-	GetColumns() []string
+	Get(id ...int) User
+	Create(r User) int
+	Update(r User, columns ...string)
+	UpdatePassword(actualPassword, newPassword string) error
+	ForceUpdatePassword(newPassword string) error
+	Enable(id ...int)
+	Disable(id ...int)
 }
 
 type UserField struct {
@@ -63,28 +49,36 @@ type User struct {
 	LastActivity time.Time      `json:"lastActivity"`
 	CreatedAt    time.Time      `json:"createdAt"`
 	UpdatedAt    time.Time      `json:"updatedAt"`
-	
+
 	columns []string
 }
 
 const (
-	UserColumnActive       = "active"
-	UserColumnRoles        = "roles"
-	UserColumnEmail        = "email"
-	UserColumnPassword     = "password"
-	UserColumnTfa          = "tfa"
-	UserColumnTfaSecret    = "tfa_secret"
-	UserColumnTfaCodes     = "tfa_codes"
-	UserColumnTfaUrl       = "tfa_url"
-	UserColumnLastActivity = "last_activity"
+	UserActive       = "active"
+	UserRoles        = "roles"
+	UserEmail        = "email"
+	UserPassword     = "password"
+	UserTfa          = "tfa"
+	UserTfaSecret    = "tfa_secret"
+	UserTfaCodes     = "tfa_codes"
+	UserTfaUrl       = "tfa_url"
+	UserLastActivity = "last_activity"
 )
 
 const (
-	usersTable = "users"
-)
-
-const (
+	usersTable  = "users"
 	paramPrefix = "@"
+)
+
+const (
+	operationInsert = "insert"
+	operationUpdate = "update"
+)
+
+var (
+	ErrorMissingUser      = errors.New("user doesn't exist")
+	ErrorMismatchPassword = errors.New("passwords aren't equal")
+	ErrorHash             = errors.New("hash failed")
 )
 
 var (
@@ -101,40 +95,45 @@ func CreateUserManager(db *quirk.DB, id int, email string) UserManager {
 	}
 }
 
-func (u *userManager) Get(w UserWriter) {
-	columns := "*"
-	if len(w.GetColumns()) > 0 {
-		columns = strings.Join(w.GetColumns(), ",")
+func (u *userManager) Get(id ...int) User {
+	if len(id) > 0 {
+		u.id = id[0]
 	}
-	quirk.New(u.db).Q(fmt.Sprintf(`SELECT %s`, columns)).
+	var r User
+	if u.id == 0 && u.email == "" {
+		return r
+	}
+	quirk.New(u.db).Q(`SELECT *`).
 		Q(fmt.Sprintf(`FROM %s`, usersTable)).
 		If(u.id > 0, `WHERE id = ?`, u.id).
 		If(u.id == 0, `WHERE email = ?`, u.email).
 		Q(`LIMIT 1`).
-		MustExec(w)
+		MustExec(&r)
 	clear(u.data)
+	return r
 }
 
-func (u *userManager) Create(r UserReader) int {
+func (u *userManager) Create(r User) int {
 	if u.id != 0 {
-		var usr User
-		u.Get(&usr)
-		return usr.Id
+		return u.id
 	}
-	u.readData(r)
+	u.readData(operationInsert, r, []string{})
 	columns, placeholders := u.insertValues()
 	quirk.New(u.db).Q(fmt.Sprintf(`INSERT INTO %s`, usersTable)).
 		Q(fmt.Sprintf(`(%s)`, columns)).
 		Q(fmt.Sprintf(`VALUES (%s)`, placeholders), u.args()...).
 		Q(`RETURNING id`).
 		MustExec(&u.id)
-	u.email = r.GetEmail()
+	u.email = r.Email
 	clear(u.data)
 	return u.id
 }
 
-func (u *userManager) Update(r UserReader) {
-	u.readData(r)
+func (u *userManager) Update(r User, columns ...string) {
+	if u.id == 0 && u.email == "" {
+		return
+	}
+	u.readData(operationUpdate, r, columns)
 	quirk.New(u.db).Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
 		Q(fmt.Sprintf(`SET %s`, u.updateValues()), u.args()...).
 		If(u.id > 0, `WHERE id = ?`, u.id).
@@ -143,7 +142,43 @@ func (u *userManager) Update(r UserReader) {
 	clear(u.data)
 }
 
-func (u *userManager) Enable() {
+func (u *userManager) UpdatePassword(actualPassword, newPassword string) error {
+	if u.id == 0 && u.email == "" {
+		return ErrorMissingUser
+	}
+	user := u.Get()
+	if ok, err := argon2.VerifyEncoded([]byte(actualPassword), []byte(user.Password)); !ok || err != nil {
+		return ErrorMismatchPassword
+	}
+	err := quirk.New(u.db).Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
+		Q(`SET password = ?`, u.hashPassword(newPassword)).
+		If(u.id > 0, `WHERE id = ?`, u.id).
+		If(u.id == 0, `WHERE email = ?`, u.email).
+		Exec()
+	clear(u.data)
+	return err
+}
+
+func (u *userManager) ForceUpdatePassword(newPassword string) error {
+	if u.id == 0 && u.email == "" {
+		return ErrorMissingUser
+	}
+	err := quirk.New(u.db).Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
+		Q(`SET password = ?`, u.hashPassword(newPassword)).
+		If(u.id > 0, `WHERE id = ?`, u.id).
+		If(u.id == 0, `WHERE email = ?`, u.email).
+		Exec()
+	clear(u.data)
+	return err
+}
+
+func (u *userManager) Enable(id ...int) {
+	if len(id) > 0 {
+		u.id = id[0]
+	}
+	if u.id == 0 && u.email == "" {
+		return
+	}
 	quirk.New(u.db).Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
 		Q(`SET active = true`).
 		If(u.id > 0, `WHERE id = ?`, u.id).
@@ -152,7 +187,13 @@ func (u *userManager) Enable() {
 	clear(u.data)
 }
 
-func (u *userManager) Disable() {
+func (u *userManager) Disable(id ...int) {
+	if len(id) > 0 {
+		u.id = id[0]
+	}
+	if u.id == 0 && u.email == "" {
+		return
+	}
 	quirk.New(u.db).Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
 		Q(`SET active = false`).
 		If(u.id > 0, `WHERE id = ?`, u.id).
@@ -161,45 +202,31 @@ func (u *userManager) Disable() {
 	clear(u.data)
 }
 
-func (u *userManager) readData(data UserReader) {
-	columns := data.GetColumns()
-	id := data.GetId()
-	active := data.GetActive()
-	email := data.GetEmail()
-	password := data.GetPassword()
-	roles := data.GetRoles()
-	tfa := data.GetTfa()
-	tfaSecret := data.GetTfaSecret()
-	tfaCodes := data.GetTfaCodes()
-	if id > 0 {
-		u.data[quirk.Id] = id
+func (u *userManager) readData(operation string, data User, columns []string) {
+	columnsExist := len(columns) > 0
+	if operation == operationInsert && slices.Contains(columns, quirk.Id) {
+		u.data[quirk.Id] = data.Id
 	}
-	if active || slices.Contains(columns, UserColumnActive) {
-		u.data[UserColumnActive] = active
+	if !columnsExist || slices.Contains(columns, UserActive) {
+		u.data[UserActive] = data.Active
 	}
-	if len(email) > 0 || slices.Contains(columns, UserColumnEmail) {
-		u.data[UserColumnEmail] = email
+	if !columnsExist || slices.Contains(columns, UserEmail) {
+		u.data[UserEmail] = data.Email
 	}
-	if len(password) > 0 || slices.Contains(columns, UserColumnPassword) {
-		u.data[UserColumnPassword] = u.hashPassword(password)
+	if !columnsExist || slices.Contains(columns, UserPassword) {
+		u.data[UserPassword] = u.hashPassword(data.Password)
 	}
-	if len(roles) > 0 || slices.Contains(columns, UserColumnRoles) {
-		u.data[UserColumnRoles] = roles
+	if !columnsExist || slices.Contains(columns, UserRoles) {
+		u.data[UserRoles] = data.Roles
 	}
-	if tfa || slices.Contains(columns, UserColumnTfa) {
-		u.data[UserColumnTfa] = tfa
+	if !columnsExist || slices.Contains(columns, UserTfa) {
+		u.data[UserTfa] = data.Tfa
 	}
-	if len(tfaSecret) > 0 || slices.Contains(columns, UserColumnTfaSecret) {
-		u.data[UserColumnTfaSecret] = tfaSecret
+	if !columnsExist || slices.Contains(columns, UserTfaSecret) {
+		u.data[UserTfaSecret] = data.TfaSecret.String
 	}
-	if len(tfaCodes) > 0 || slices.Contains(columns, UserColumnTfaCodes) {
-		u.data[UserColumnTfaCodes] = tfaCodes
-	}
-	for _, f := range data.GetCustomFields() {
-		if f.Value == nil && !slices.Contains(columns, f.Name) {
-			continue
-		}
-		u.data[f.Name] = f.Value
+	if !columnsExist || slices.Contains(columns, UserTfaCodes) {
+		u.data[UserTfaCodes] = data.TfaCodes.String
 	}
 }
 
@@ -225,12 +252,12 @@ func (u *userManager) insertValues() (string, string) {
 			placeholders = append(placeholders, paramPrefix+quirk.Vectors)
 		}
 	}
-	columns = append(columns, UserColumnLastActivity)
+	columns = append(columns, UserLastActivity)
 	placeholders = append(placeholders, quirk.CurrentTimestamp)
-	
+
 	columns = append(columns, quirk.CreatedAt)
 	placeholders = append(placeholders, quirk.CurrentTimestamp)
-	
+
 	columns = append(columns, quirk.UpdatedAt)
 	placeholders = append(placeholders, quirk.CurrentTimestamp)
 	return strings.Join(columns, ","), strings.Join(placeholders, ",")
@@ -243,7 +270,7 @@ func (u *userManager) args() []any {
 	result := u.data
 	vectors := make([]any, 0)
 	for name, v := range u.data {
-		if name == UserColumnPassword {
+		if name == UserPassword {
 			continue
 		}
 		vectors = append(vectors, v)
@@ -265,7 +292,7 @@ func (u *userManager) updateValues() string {
 		}
 		result = append(result, fmt.Sprintf("%s = %s%s", column, paramPrefix, column))
 	}
-	result = append(result, fmt.Sprintf("%s = %s", UserColumnLastActivity, quirk.CurrentTimestamp))
+	result = append(result, fmt.Sprintf("%s = %s", UserLastActivity, quirk.CurrentTimestamp))
 	result = append(result, fmt.Sprintf("%s = %s", quirk.UpdatedAt, quirk.CurrentTimestamp))
 	switch u.driverName {
 	case quirk.Postgres:
@@ -281,49 +308,4 @@ func (u *userManager) updateValues() string {
 		}
 	}
 	return strings.Join(result, ",")
-}
-
-func (u User) GetId() int {
-	return u.Id
-}
-
-func (u User) GetActive() bool {
-	return u.Active
-}
-
-func (u User) GetRoles() []string {
-	return u.Roles
-}
-
-func (u User) GetEmail() string {
-	return u.Email
-}
-
-func (u User) GetPassword() string {
-	return u.Password
-}
-
-func (u User) GetTfa() bool {
-	return u.Tfa
-}
-
-func (u User) GetTfaSecret() string {
-	return u.TfaSecret.String
-}
-
-func (u User) GetTfaCodes() string {
-	return u.TfaCodes.String
-}
-
-func (u User) GetCustomFields() []UserField {
-	return []UserField{}
-}
-
-func (u User) GetColumns() []string {
-	return u.columns
-}
-
-func (u User) WithColumns(columns ...string) User {
-	u.columns = columns
-	return u
 }

@@ -6,10 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
-	
+
 	"github.com/pquerna/otp/totp"
 	"github.com/stretchr/testify/assert"
-	
+
 	"github.com/creamsensation/cp/internal/config"
 	"github.com/creamsensation/cp/internal/constant/cacheAdapter"
 	"github.com/creamsensation/cp/internal/constant/naming"
@@ -72,8 +72,7 @@ func TestAuth(t *testing.T) {
 			req.AddCookie(sessionCookie)
 			c := createTestControl(req, res)
 			c.Auth().Tfa().Enable()
-			var u User
-			c.Auth().User().Get(&u)
+			u := c.Auth().User().Get()
 			assert.Equal(t, true, u.Tfa)
 			assert.Equal(t, true, len(u.TfaSecret.String) > 0)
 			assert.Equal(t, true, len(u.TfaUrl.String) > 0)
@@ -119,8 +118,8 @@ func TestAuth(t *testing.T) {
 	t.Run(
 		"update user", func(t *testing.T) {
 			u := User{Active: false}
-			CreateUserManager(db, user.Id, "dominik@linduska.dev").Update(u.WithColumns("active"))
-			CreateUserManager(db, user.Id, "dominik@linduska.dev").Get(&u)
+			CreateUserManager(db, user.Id, "dominik@linduska.dev").Update(u, "active")
+			u = CreateUserManager(db, user.Id, "dominik@linduska.dev").Get()
 			assert.Equal(t, false, u.Active)
 		},
 	)

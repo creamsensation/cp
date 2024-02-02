@@ -11,8 +11,13 @@ type Security struct {
 }
 
 type SecurityCsrf struct {
-	Enabled  bool          `yaml:"enabled"`
-	Duration time.Duration `yaml:"duration"`
+	Enabled  bool              `yaml:"enabled"`
+	Duration time.Duration     `yaml:"duration"`
+	Clean    SecurityCsrfClean `yaml:"clean"`
+}
+
+type SecurityCsrfClean struct {
+	IgnoreRoutes []string `yaml:"ignore-routes"`
 }
 
 type SecurityFirewall struct {

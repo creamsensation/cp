@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
-	
+
 	"github.com/creamsensation/gox"
 	htmx "github.com/creamsensation/hx"
-	
+
 	"github.com/creamsensation/cp/env"
 	"github.com/creamsensation/cp/internal/responder/hx"
 	"github.com/creamsensation/cp/internal/result"
@@ -22,7 +22,7 @@ type Response interface {
 	Header() http.Header
 	Hx() hx.Response
 	Raw() http.ResponseWriter
-	Redirect(name string) Result
+	Redirect(name string, arg ...Map) Result
 	Refresh() Result
 	Render(nodes ...gox.Node) Result
 	Status(statusCode int) Response
@@ -73,7 +73,7 @@ func (r response) Raw() http.ResponseWriter {
 	return r.control.response
 }
 
-func (r response) Redirect(name string) Result {
+func (r response) Redirect(name string, arg ...Map) Result {
 	if r.control.main != nil || *r.control.statusCode == 0 {
 		*r.control.statusCode = http.StatusFound
 	}
@@ -81,7 +81,7 @@ func (r response) Redirect(name string) Result {
 	if strings.HasPrefix(name, "/") {
 		return result.CreateRedirect(name, *r.control.statusCode)
 	}
-	return result.CreateRedirect(r.control.Link(name), *r.control.statusCode)
+	return result.CreateRedirect(r.control.Link(name, arg...), *r.control.statusCode)
 }
 
 func (r response) Refresh() Result {

@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	
+
 	"github.com/creamsensation/cp/env"
 	"github.com/creamsensation/cp/internal/constant/cookieName"
 	"github.com/creamsensation/cp/internal/constant/expiration"
@@ -58,7 +58,7 @@ func (l *lifecycle) run() {
 func (l *lifecycle) runMiddlewares() bool {
 	for _, handlerFn := range l.core.router.middlewares {
 		l.callFn(handlerFn)
-		if len(l.control.result.ContentType) == 0 {
+		if len(l.control.result.Content) == 0 {
 			continue
 		}
 		l.writeResult()
@@ -136,7 +136,7 @@ func (l *lifecycle) runFirewall() bool {
 		}
 		firewalls[name] = f
 	}
-	
+
 	if len(firewalls) == 0 {
 		return true
 	}
@@ -155,7 +155,7 @@ func (l *lifecycle) runFirewall() bool {
 	secret := l.control.Request().Header().Get(header.Secret)
 	for _, f := range firewalls {
 		var valid bool
-		if f.Secret == secret {
+		if len(f.Secret) > 0 && f.Secret == secret {
 			valid = true
 		}
 		if f.Invert || (!f.Invert && isAuth && len(f.Roles) == 0) {

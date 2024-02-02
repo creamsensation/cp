@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	
+
 	"github.com/creamsensation/cp/internal/config"
 	"github.com/creamsensation/cp/internal/constant/requestVar"
 	"github.com/creamsensation/cp/internal/firewall"
@@ -132,6 +132,10 @@ func (r *router) prepareMiddlewares() {
 			createRateLimitMiddleware(r.config.Security),
 		)
 	}
+	r.middlewares = append(
+		r.middlewares,
+		createSessionMiddleware(),
+	)
 }
 
 func prepareRoutes(items []*route.Builder, firewalls map[string]*firewall.Firewall) []route.Route {
