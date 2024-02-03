@@ -6,14 +6,15 @@ import (
 	"fmt"
 	"image/png"
 	"time"
-
+	
 	"github.com/dchest/uniuri"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
-
+	
 	"github.com/creamsensation/cp/internal/constant/cacheKey"
 	"github.com/creamsensation/cp/internal/constant/cookieName"
 	"github.com/creamsensation/gox"
+	"github.com/creamsensation/quirk"
 )
 
 type TfaManager interface {
@@ -58,7 +59,7 @@ func (m tfaManager) Verify(otp string) (string, bool) {
 	}
 	m.DB().
 		Q(fmt.Sprintf(`SELECT id, email, roles, tfa_secret FROM %s`, usersTable)).
-		Q("WHERE id = ?", u.Id).
+		Q("WHERE id = @id", quirk.Map{"id": u.Id}).
 		MustExec(&u)
 	if valid := totp.Validate(otp, u.TfaSecret.String); !valid {
 		return "", false
@@ -81,16 +82,23 @@ func (m tfaManager) Enable(id ...int) {
 	codes := uniuri.NewLen(tfaCodesSize)
 	m.DB().
 		Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
-		Q("SET tfa = ?, tfa_codes = ?, tfa_secret = ?, tfa_url = ?", true, codes, key.Secret(), key.String()).
-		Q("WHERE id = ?", userId).
+		Q(
+			"SET tfa = @tfa, tfa_codes = @tfa-codes, tfa_secret = @tfa-secret, tfa_url = @tfa-url", quirk.Map{
+				"tfa":        true,
+				"tfa-codes":  codes,
+				"tfa-secret": key.Secret(),
+				"tfa-url":    key.String(),
+			},
+		).
+		Q("WHERE id = @id", quirk.Map{"id": userId}).
 		MustExec()
 }
 
 func (m tfaManager) Disable(id ...int) {
 	m.DB().
 		Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
-		Q("SET tfa = ?, tfa_codes = NULL, tfa_secret = NULL, tfa_url = NULL", false).
-		Q("WHERE id = ?", m.getUserId(id...)).
+		Q("SET tfa = false, tfa_codes = NULL, tfa_secret = NULL, tfa_url = NULL").
+		Q("WHERE id = @id", quirk.Map{"id": m.getUserId(id...)}).
 		MustExec()
 	m.Cookie().Destroy(cookieName.Tfa)
 }
@@ -100,7 +108,7 @@ func (m tfaManager) CreateQrImage(nodes ...gox.Node) gox.Node {
 	s := m.Auth().Session().Get()
 	err := m.DB().
 		Q(fmt.Sprintf(`SELECT tfa_url FROM %s`, usersTable)).
-		Q("WHERE id = ?", s.Id).
+		Q("WHERE id = @id", quirk.Map{"id": u.Id}).
 		Exec(&u)
 	if err != nil {
 		return gox.Text(err)

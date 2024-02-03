@@ -6,10 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
-
+	
 	"github.com/pquerna/otp/totp"
 	"github.com/stretchr/testify/assert"
-
+	
 	"github.com/creamsensation/cp/internal/config"
 	"github.com/creamsensation/cp/internal/constant/cacheAdapter"
 	"github.com/creamsensation/cp/internal/constant/naming"
@@ -93,7 +93,7 @@ func TestAuth(t *testing.T) {
 			var u User
 			c.Cache().Get(tfaCookie.Value, &u)
 			assert.Equal(t, true, u.Id > 0)
-			c.DB().Q(`SELECT tfa_secret FROM users WHERE id = ?`, u.Id).MustExec(&u)
+			c.DB().Q(`SELECT tfa_secret FROM users WHERE id = @id`, quirk.Map{"id": u.Id}).MustExec(&u)
 			otp, err := totp.GenerateCode(u.TfaSecret.String, time.Now())
 			assert.Nil(t, err)
 			_, ok := c.Auth().Tfa().Verify(otp)

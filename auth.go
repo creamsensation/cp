@@ -3,13 +3,14 @@ package cp
 import (
 	"fmt"
 	"time"
-
+	
 	"github.com/dchest/uniuri"
 	"github.com/matthewhartstonge/argon2"
-
+	
 	"github.com/creamsensation/cp/internal/constant/cacheKey"
 	"github.com/creamsensation/cp/internal/constant/cookieName"
 	"github.com/creamsensation/cp/internal/constant/naming"
+	"github.com/creamsensation/quirk"
 )
 
 type Auth interface {
@@ -17,7 +18,7 @@ type Auth interface {
 	Tfa() TfaManager
 	User(dbname ...string) UserManager
 	CustomUser(id int, email string, dbname ...string) UserManager
-
+	
 	In(email, password string) AuthIn
 	Out()
 }
@@ -74,7 +75,7 @@ func (a auth) In(email, password string) AuthIn {
 	var r User
 	err := a.DB().
 		Q(fmt.Sprintf(`SELECT id, email, roles, password, tfa FROM %s`, usersTable)).
-		Q("WHERE email = ?", email).
+		Q("WHERE email = @email", quirk.Map{"email": email}).
 		Q("AND active = true").
 		Exec(&r)
 	if err != nil {

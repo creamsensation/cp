@@ -6,11 +6,11 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
-
+	
 	"github.com/dchest/uniuri"
 	"github.com/pquerna/otp/totp"
 	"github.com/stretchr/testify/assert"
-
+	
 	"github.com/creamsensation/cp/internal/config"
 	"github.com/creamsensation/cp/internal/constant/cacheAdapter"
 	"github.com/creamsensation/cp/internal/constant/cookieName"
@@ -115,7 +115,9 @@ func TestTfa(t *testing.T) {
 			auth := ctrl.Auth().In("dominik@linduska.dev", "123456789")
 			ctrl.request.Header.Add(header.Cookie, fmt.Sprintf("%s=%s", cookieName.Tfa, auth.Token()))
 			var u User
-			ctrl.DB().Q(`SELECT tfa_secret FROM users WHERE email = ?`, "dominik@linduska.dev").MustExec(&u)
+			ctrl.DB().Q(
+				`SELECT tfa_secret FROM users WHERE email = @email`, quirk.Map{"email": "dominik@linduska.dev"},
+			).MustExec(&u)
 			otp, err := totp.GenerateCode(u.TfaSecret.String, time.Now())
 			assert.Nil(t, err)
 			token, tfaOk := ctrl.Auth().Tfa().Verify(otp)
@@ -141,7 +143,9 @@ func TestTfa(t *testing.T) {
 			auth := ctrl.Auth().In("dominik@linduska.dev", "123456789")
 			ctrl.request.Header.Add(header.Cookie, fmt.Sprintf("%s=%s", cookieName.Tfa, auth.Token()))
 			var u User
-			ctrl.DB().Q(`SELECT tfa_secret FROM users WHERE email = ?`, "dominik@linduska.dev").MustExec(&u)
+			ctrl.DB().Q(
+				`SELECT tfa_secret FROM users WHERE email = @email`, quirk.Map{"email": "dominik@linduska.dev"},
+			).MustExec(&u)
 			otp, err := totp.GenerateCode(u.TfaSecret.String, time.Now())
 			assert.Nil(t, err)
 			token, tfaOk := ctrl.Auth().Tfa().Verify(otp)

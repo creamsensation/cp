@@ -7,9 +7,9 @@ import (
 	"slices"
 	"strings"
 	"time"
-
+	
 	"github.com/matthewhartstonge/argon2"
-
+	
 	"github.com/creamsensation/quirk"
 )
 
@@ -33,7 +33,7 @@ type userManager struct {
 	id         int
 	email      string
 	driverName string
-	data       map[string]any
+	data       quirk.Map
 }
 
 type User struct {
@@ -49,7 +49,7 @@ type User struct {
 	LastActivity time.Time      `json:"lastActivity"`
 	CreatedAt    time.Time      `json:"createdAt"`
 	UpdatedAt    time.Time      `json:"updatedAt"`
-
+	
 	columns []string
 }
 
@@ -105,8 +105,8 @@ func (u *userManager) Get(id ...int) User {
 	}
 	quirk.New(u.db).Q(`SELECT *`).
 		Q(fmt.Sprintf(`FROM %s`, usersTable)).
-		If(u.id > 0, `WHERE id = ?`, u.id).
-		If(u.id == 0, `WHERE email = ?`, u.email).
+		If(u.id > 0, `WHERE id = @id`, quirk.Map{"id": u.id}).
+		If(u.id == 0, `WHERE email = @email`, quirk.Map{"email": u.email}).
 		Q(`LIMIT 1`).
 		MustExec(&r)
 	clear(u.data)
@@ -136,8 +136,8 @@ func (u *userManager) Update(r User, columns ...string) {
 	u.readData(operationUpdate, r, columns)
 	quirk.New(u.db).Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
 		Q(fmt.Sprintf(`SET %s`, u.updateValues()), u.args()...).
-		If(u.id > 0, `WHERE id = ?`, u.id).
-		If(u.id == 0, `WHERE email = ?`, u.email).
+		If(u.id > 0, `WHERE id = @id`, quirk.Map{"id": u.id}).
+		If(u.id == 0, `WHERE email = @email`, quirk.Map{"email": u.email}).
 		MustExec()
 	clear(u.data)
 }
@@ -151,9 +151,9 @@ func (u *userManager) UpdatePassword(actualPassword, newPassword string) error {
 		return ErrorMismatchPassword
 	}
 	err := quirk.New(u.db).Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
-		Q(`SET password = ?`, u.hashPassword(newPassword)).
-		If(u.id > 0, `WHERE id = ?`, u.id).
-		If(u.id == 0, `WHERE email = ?`, u.email).
+		Q(`SET password = @password`, quirk.Map{"password": u.hashPassword(newPassword)}).
+		If(u.id > 0, `WHERE id = @id`, quirk.Map{"id": u.id}).
+		If(u.id == 0, `WHERE email = @email`, quirk.Map{"email": u.email}).
 		Exec()
 	clear(u.data)
 	return err
@@ -164,9 +164,9 @@ func (u *userManager) ForceUpdatePassword(newPassword string) error {
 		return ErrorMissingUser
 	}
 	err := quirk.New(u.db).Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
-		Q(`SET password = ?`, u.hashPassword(newPassword)).
-		If(u.id > 0, `WHERE id = ?`, u.id).
-		If(u.id == 0, `WHERE email = ?`, u.email).
+		Q(`SET password = @password`, quirk.Map{"password": u.hashPassword(newPassword)}).
+		If(u.id > 0, `WHERE id = @id`, quirk.Map{"id": u.id}).
+		If(u.id == 0, `WHERE email = @email`, quirk.Map{"email": u.email}).
 		Exec()
 	clear(u.data)
 	return err
@@ -181,8 +181,8 @@ func (u *userManager) Enable(id ...int) {
 	}
 	quirk.New(u.db).Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
 		Q(`SET active = true`).
-		If(u.id > 0, `WHERE id = ?`, u.id).
-		If(u.id == 0, `WHERE email = ?`, u.email).
+		If(u.id > 0, `WHERE id = @id`, quirk.Map{"id": u.id}).
+		If(u.id == 0, `WHERE email = @email`, quirk.Map{"email": u.email}).
 		MustExec()
 	clear(u.data)
 }
@@ -196,8 +196,8 @@ func (u *userManager) Disable(id ...int) {
 	}
 	quirk.New(u.db).Q(fmt.Sprintf(`UPDATE %s`, usersTable)).
 		Q(`SET active = false`).
-		If(u.id > 0, `WHERE id = ?`, u.id).
-		If(u.id == 0, `WHERE email = ?`, u.email).
+		If(u.id > 0, `WHERE id = @id`, quirk.Map{"id": u.id}).
+		If(u.id == 0, `WHERE email = @email`, quirk.Map{"email": u.email}).
 		MustExec()
 	clear(u.data)
 }
@@ -254,18 +254,18 @@ func (u *userManager) insertValues() (string, string) {
 	}
 	columns = append(columns, UserLastActivity)
 	placeholders = append(placeholders, quirk.CurrentTimestamp)
-
+	
 	columns = append(columns, quirk.CreatedAt)
 	placeholders = append(placeholders, quirk.CurrentTimestamp)
-
+	
 	columns = append(columns, quirk.UpdatedAt)
 	placeholders = append(placeholders, quirk.CurrentTimestamp)
 	return strings.Join(columns, ","), strings.Join(placeholders, ",")
 }
 
-func (u *userManager) args() []any {
+func (u *userManager) args() []quirk.Map {
 	if len(u.data) == 0 {
-		return []any{}
+		return []quirk.Map{}
 	}
 	result := u.data
 	vectors := make([]any, 0)
@@ -281,7 +281,7 @@ func (u *userManager) args() []any {
 			result[quirk.Vectors] = quirk.CreateTsVectors(vectors...)
 		}
 	}
-	return []any{result}
+	return []quirk.Map{result}
 }
 
 func (u *userManager) updateValues() string {
