@@ -3,137 +3,93 @@ package cp
 import (
 	"fmt"
 	"strings"
-
-	"github.com/creamsensation/cp/internal/constant/componentState"
-	"github.com/creamsensation/cp/internal/constant/cookieName"
-	"github.com/creamsensation/cp/internal/constant/expiration"
-	"github.com/creamsensation/cp/internal/constant/queryKey"
-	"github.com/creamsensation/cp/internal/constant/requestVar"
-	"github.com/creamsensation/cp/internal/querystring"
-	"github.com/creamsensation/cp/internal/route"
-	"github.com/creamsensation/form"
+	
 	"github.com/creamsensation/gox"
-	"github.com/creamsensation/hx"
+	
+	"github.com/creamsensation/csrf"
+	"github.com/creamsensation/form"
 )
 
 type Generator interface {
-	Hx() HxGenerator
-	Link() LinkGenerator
-	Query(arg Map) string
-	Url() UrlGenerator
-}
-
-type HxGenerator interface {
-	Csrf(key, name string) gox.Node
-}
-
-type LinkGenerator interface {
-	Action(action string, arg ...Map) string
-	Name(name string, arg ...Map) string
-	SwitchLang(langCode string, overwrite ...Map) string
-}
-
-type UrlGenerator interface {
-	Asset(path string) string
+	Assets() gox.Node
+	Action(name string) string
+	Csrf(name string) gox.Node
+	Link(name string, args ...Map) string
+	Query(args Map) string
+	SwitchLang(langCode string) string
 }
 
 type generator struct {
-	control *control
+	*ctx
 }
 
-const (
-	linkLevelDivider = "_"
-)
-
-func (g generator) Action(action string, arg ...Map) string {
-	if g.control.component == nil {
-		return action
+func (g *generator) Assets() gox.Node {
+	if g.assets == nil {
+		return gox.Fragment()
 	}
-	action = g.control.component.Name() + linkLevelDivider + action
-	shouldHaveModule := strings.Count(action, linkLevelDivider) == 3
-	shouldHaveController := strings.Count(action, linkLevelDivider) >= 2
-	shouldAddModulePrefix := len(g.control.route.Module) > 0 && !shouldHaveModule
-	shouldAddControllerPrefix := len(g.control.route.Controller) > 0 && !shouldHaveController
-	if shouldAddControllerPrefix {
-		action = g.control.route.Controller + linkLevelDivider + action
-	}
-	if shouldAddModulePrefix {
-		action = g.control.route.Module + linkLevelDivider + action
-	}
-	qm := Map{queryKey.Action: action}
-	isCache := g.control.Config().Component.State == componentState.Cache
-	args := make(Map)
-	if len(arg) > 0 {
-		args = arg[0]
-		for k, v := range arg[0] {
-			qm[k] = v
-		}
-	}
-	if isCache {
-		return g.control.Request().Path() + g.control.Generate().Query(qm)
-	}
-	queryStateParams := querystring.New(g.control.component).
-		IgnoreInterface(componentControlInterfaceName).
-		Override(args).
-		Encode()
-	if len(queryStateParams) == 0 {
-		return g.control.Request().Path() + g.control.Generate().Query(qm)
-	}
-	return g.control.Request().Path() + g.control.Generate().Query(Map{queryKey.Action: action}) + "&" + queryStateParams
-}
-
-func (g generator) Asset(path string) string {
-	if strings.HasPrefix(path, "/") {
-		path = strings.TrimPrefix(path, "/")
-	}
-	return fmt.Sprintf("/%s/%s", g.control.config.Assets.PublicPath, path)
-}
-
-func (g generator) Csrf(key, name string) gox.Node {
-	token := g.control.Csrf().Create(key, name, g.control.Request().Ip(), g.control.Request().UserAgent())
-	return gox.If(
-		g.control.config.Security.Csrf.Enabled,
-		hx.Vals(fmt.Sprintf(`{"%s":"%s","%s":"%s"}`, form.CsrfName, name, form.CsrfToken, token)),
+	return gox.Fragment(
+		gox.Range(
+			g.assets.styles, func(style string, _ int) gox.Node {
+				return gox.Link(gox.Rel("stylesheet"), gox.Type("text/css"), gox.Href(style))
+			},
+		),
+		gox.Range(
+			g.assets.scripts, func(style string, _ int) gox.Node {
+				return gox.Script(gox.Defer(), gox.Src(style))
+			},
+		),
 	)
 }
 
-func (g generator) Hx() HxGenerator {
-	return g
-}
-
-func (g generator) Link() LinkGenerator {
-	return g
-}
-
-func (g generator) Name(name string, arg ...Map) string {
-	if len(name) == 0 {
+func (g *generator) Action(name string) string {
+	if g.component == nil {
 		return ""
 	}
-	if g.control.Request().Is().Localized() {
-		if len(arg) == 0 {
-			arg = make([]Map, 1)
-			arg[0] = make(Map)
-		}
-		arg[0][requestVar.Lang] = g.control.Request().Lang()
-		localizedRoutes, ok := g.control.core.router.localizedRoutes[g.control.Request().Lang()]
-		if !ok {
-			return name
-		}
-		link, ok := g.generateLink(localizedRoutes, name, arg...)
-		if ok {
-			return link
+	qpm := Map{Action: g.route.Name + namePrefixDivider + g.component.name + namePrefixDivider + name}
+	for k, vals := range g.Request().Raw().URL.Query() {
+		for _, v := range vals {
+			qpm[k] = v
 		}
 	}
-	link, _ := g.generateLink(g.control.core.router.routes, name, arg...)
-	return link
+	return g.Request().Path() + g.Query(qpm)
 }
 
-func (g generator) Query(arg Map) string {
-	if len(arg) == 0 {
+func (g *generator) Csrf(name string) gox.Node {
+	token := g.csrf.MustCreate(
+		csrf.Token{
+			Name:      name,
+			Ip:        g.Request().Ip(),
+			UserAgent: g.Request().UserAgent(),
+		},
+	)
+	return form.Csrf(name, token)
+}
+
+func (g *generator) Link(name string, args ...Map) string {
+	if !strings.Contains(name, namePrefixDivider) {
+		name = g.route.Name + namePrefixDivider + name
+	}
+	l := g.Lang().Current()
+	for _, r := range *g.routes {
+		if !g.config.Localization.Path {
+			if r.Name == name {
+				return g.replacePathParamsWithArgs(r.Path, args...)
+			}
+			continue
+		}
+		if r.Name == name && r.Lang == l {
+			return g.replacePathParamsWithArgs(r.Path, args...)
+		}
+	}
+	return ""
+}
+
+func (g *generator) Query(args Map) string {
+	if len(args) == 0 {
 		return ""
 	}
 	result := make([]string, 0)
-	for k, v := range arg {
+	for k, v := range args {
 		if v == nil {
 			continue
 		}
@@ -142,105 +98,29 @@ func (g generator) Query(arg Map) string {
 	return "?" + strings.Join(result, "&")
 }
 
-func (g generator) SwitchLang(langCode string, overwrite ...Map) string {
-	if !g.control.core.languagesExist() {
-		return g.control.Request().Path()
+func (g *generator) SwitchLang(langCode string) string {
+	path := g.Request().Path()
+	name := g.Request().Name()
+	g.cookie.Set(langCookieKey, langCode, langCookieDuration)
+	if !g.config.Localization.Path {
+		return path
 	}
-	if !g.control.core.router.localized {
-		g.control.Cookie().Set(cookieName.Lang, langCode, expiration.Lang)
-		return g.control.Request().Path()
-	}
-	var vars Map
-	currentLang := Var[string](g.control, requestVar.Lang)
-	index := -1
-	for lc, lr := range g.control.core.router.localizedRoutes {
-		if lc != currentLang {
-			continue
-		}
-		for i, r := range lr {
-			if r.Matcher.MatchString(g.control.Request().Path()) {
-				index = i
-				break
-			}
+	for _, r := range *g.routes {
+		if r.Name == name && r.Lang == langCode {
+			return r.Path
 		}
 	}
-	if index == -1 {
-		return fmt.Sprintf("[%s:localized route does not exist>", langCode)
-	}
-	langRoutes, ok := g.control.core.router.localizedRoutes[langCode]
-	if !ok {
-		return fmt.Sprintf("<%s:language does not exist>", langCode)
-	}
-	if len(langRoutes)-1 < index {
-		return fmt.Sprintf("/%s", langCode)
-	}
-	match := langRoutes[index]
-	path := match.Path
-	if len(overwrite) > 0 {
-		vars = overwrite[0]
-	}
-	for vk, vp := range match.VarsPlaceholders {
-		if vk == requestVar.Lang {
-			path = strings.Replace(path, vp, langCode, 1)
-			continue
-		}
-		v, ok := vars[vk]
-		if ok {
-			path = strings.Replace(path, vp, fmt.Sprintf("%v", v), 1)
-		}
-		if !ok {
-			path = strings.Replace(path, vp, Var[string](g.control, vk), 1)
-		}
-	}
-	g.control.Cookie().Set(cookieName.Lang, langCode, expiration.Lang)
 	return path
 }
 
-func (g generator) Url() UrlGenerator {
-	return g
-}
-
-func (g generator) generateLink(routes []route.Route, name string, args ...Map) (string, bool) {
-	shouldHaveModule := strings.Count(name, linkLevelDivider) == 2
-	shouldHaveController := strings.Count(name, linkLevelDivider) >= 1
-	shouldAddModulePrefix := len(g.control.route.Module) > 0 && !shouldHaveModule
-	shouldAddControllerPrefix := len(g.control.route.Controller) > 0 && !shouldHaveController
+func (g *generator) replacePathParamsWithArgs(path string, args ...Map) string {
 	if len(args) == 0 {
-		args = []Map{}
+		return path
 	}
-	arg := g.fillLinkArgsWithRequestVars(args...)
-	for _, rt := range routes {
-		if !strings.HasSuffix(rt.Name, name) {
-			continue
-		}
-		if shouldAddControllerPrefix && rt.Controller == g.control.route.Controller {
-			name = rt.Controller + linkLevelDivider + name
-		}
-		if shouldAddModulePrefix && rt.Module == g.control.route.Module {
-			name = rt.Module + linkLevelDivider + name
-		}
-		if name != rt.Name {
-			continue
-		}
-		if len(rt.VarsPlaceholders) == 0 {
-			return rt.Path, true
-		}
-		for routeVarName, routeVarPlaceholder := range rt.VarsPlaceholders {
-			if v, ok := arg[routeVarName]; ok {
-				rt.Path = strings.Replace(rt.Path, routeVarPlaceholder, fmt.Sprintf("%v", v), 1)
-			}
-		}
-		return rt.Path, true
+	replace := make([]string, 0)
+	for k, v := range args[0] {
+		replace = append(replace, "{"+k+"}", fmt.Sprintf("%v", v))
 	}
-	return "/" + name, false
-}
-
-func (g generator) fillLinkArgsWithRequestVars(arg ...Map) Map {
-	result := convertMap(g.control.vars)
-	if len(arg) > 0 {
-		for k, v := range arg[0] {
-			result[k] = v
-		}
-	}
-	return result
+	r := strings.NewReplacer(replace...)
+	return r.Replace(path)
 }

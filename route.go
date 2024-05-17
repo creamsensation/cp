@@ -1,74 +1,40 @@
 package cp
 
 import (
-	"net/http"
+	"regexp"
 	
-	"github.com/creamsensation/cp/internal/handler"
-	"github.com/creamsensation/cp/internal/route"
+	"github.com/creamsensation/firewall"
 )
 
-type Routes []*route.Builder
-
-func Route(configs ...route.Config) *route.Builder {
-	return route.CreateBuilder(configs...)
+type RouteConfig struct {
+	Type  int
+	Value any
 }
 
-func Name(name string) route.Config {
-	return route.CreateConfig(route.ConfigName, name)
+type Route struct {
+	Lang      string
+	Path      string
+	Name      string
+	Matcher   *regexp.Regexp
+	Methods   []string
+	Firewalls []firewall.Firewall
 }
 
-func Path(path route.PathValue) route.Config {
-	return route.CreatePathConfig(path)
+const (
+	routeMethod = iota
+	routeName
+)
+
+func Method(method ...string) RouteConfig {
+	return RouteConfig{
+		Type:  routeMethod,
+		Value: method,
+	}
 }
 
-func Layout(name string) route.Config {
-	return route.CreateConfig(route.ConfigLayout, name)
-}
-
-func Localize() route.Config {
-	return route.CreateConfig(route.ConfigLocalize, true)
-}
-
-func Handler(fn handler.Fn) route.Config {
-	return route.CreateConfig(route.ConfigHandler, fn)
-}
-
-func Method(methods ...route.Config) route.Config {
-	return route.CreateMethodConfig(methods...)
-}
-
-func Get(path ...route.PathValue) route.Config {
-	return route.CreateMethodPathConfig(http.MethodGet, path...)
-}
-
-func Post(path ...route.PathValue) route.Config {
-	return route.CreateMethodPathConfig(http.MethodPost, path...)
-}
-
-func Put(path ...route.PathValue) route.Config {
-	return route.CreateMethodPathConfig(http.MethodPut, path...)
-}
-
-func Patch(path ...route.PathValue) route.Config {
-	return route.CreateMethodPathConfig(http.MethodPatch, path...)
-}
-
-func Delete(path ...route.PathValue) route.Config {
-	return route.CreateMethodPathConfig(http.MethodDelete, path...)
-}
-
-func Options(path ...route.PathValue) route.Config {
-	return route.CreateMethodPathConfig(http.MethodOptions, path...)
-}
-
-func Head(path ...route.PathValue) route.Config {
-	return route.CreateMethodPathConfig(http.MethodHead, path...)
-}
-
-func Trace(path ...route.PathValue) route.Config {
-	return route.CreateMethodPathConfig(http.MethodTrace, path...)
-}
-
-func Connect(path ...route.PathValue) route.Config {
-	return route.CreateMethodPathConfig(http.MethodConnect, path...)
+func Name(name string) RouteConfig {
+	return RouteConfig{
+		Type:  routeName,
+		Value: name,
+	}
 }

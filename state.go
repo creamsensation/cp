@@ -1,112 +1,59 @@
 package cp
 
 import (
-	"encoding/json"
 	"time"
 	
 	"github.com/dchest/uniuri"
 	
-	"github.com/creamsensation/cp/internal/constant/cookieName"
+	"github.com/creamsensation/cache"
+	"github.com/creamsensation/cookie"
 )
-
-type StateManager interface {
-	Exists() bool
-	Get(result any)
-	Set(data any)
-	Reset()
-}
-
-var (
-	stateExpiration = time.Hour * 24 * 30
-)
-
-type stateManager struct {
-	control   Control
-	name      string
-	token     string
-	cacheKey  string
-	cookieKey string
-	reset     bool
-}
 
 type state struct {
-	Exist     bool   `json:"exists"`
-	Lang      string `json:"lang"`
-	Ip        string `json:"ip"`
-	UserAgent string `json:"userAgent"`
-	Data      []byte `json:"data"`
+	token      string
+	exists     bool
+	cache      cache.Client
+	cookie     cookie.Cookie
+	Components map[string]any `json:"components"`
+	Messages   []Message      `json:"messages"`
 }
 
-func createState(control *control) StateManager {
-	s := &stateManager{control: control}
-	if control.component != nil {
-		s.name = createPrefixedComponentName(control)
+const (
+	stateCookieKey = "X-State"
+	stateCacheKey  = "state"
+)
+
+var (
+	stateDuration = 7 * 24 * time.Hour
+)
+
+func createState(cache cache.Client, cookie cookie.Cookie) *state {
+	s := &state{
+		cache:      cache,
+		cookie:     cookie,
+		Components: make(map[string]any),
+		Messages:   make([]Message, 0),
 	}
-	s.cookieKey = s.createCookieKey()
-	s.token = control.Cookie().Get(s.cookieKey)
-	if len(s.token) == 0 {
+	s.token = cookie.Get(stateCookieKey)
+	s.exists = len(s.token) > 0
+	if !s.exists {
 		s.token = uniuri.New()
 	}
-	s.cacheKey = s.createCacheKey()
+	if s.exists {
+		cache.MustGet(stateCacheKey+":"+s.token, s)
+	}
 	return s
 }
 
-func (s *stateManager) Exists() bool {
-	return s.control.Cache().Exists(s.cacheKey)
+func (s *state) save() error {
+	s.cookie.Set(stateCookieKey, s.token, stateDuration)
+	return s.cache.Set(stateCacheKey+":"+s.token, s, stateDuration)
 }
 
-func (s *stateManager) Get(result any) {
-	exists := s.control.Cache().Exists(s.cacheKey)
-	if !exists {
-		return
-	}
-	var r state
-	s.control.Cache().Get(s.cacheKey, &r)
-	if s.control.Request().Ip() != r.Ip ||
-		s.control.Request().UserAgent() != r.UserAgent {
-		return
-	}
-	s.control.Error().Check(json.Unmarshal(r.Data, result))
-}
-
-func (s *stateManager) Set(data any) {
-	if s.reset {
-		return
-	}
-	dataBytes, err := json.Marshal(data)
+func (s *state) mustSave() {
+	err := s.save()
 	if err != nil {
-		s.control.Error().Check(err)
+		panic(err)
 	}
-	s.control.Cache().Set(s.cacheKey, s.createState(dataBytes), stateExpiration)
-	s.control.Cookie().Set(s.cookieKey, s.token, stateExpiration)
-}
-
-func (s *stateManager) Reset() {
-	s.reset = true
-	s.control.Cache().Set(s.cacheKey, "", time.Millisecond)
-	s.control.Cookie().Set(s.cookieKey, "", time.Millisecond)
-}
-
-func (s *stateManager) createCacheKey() string {
-	if len(s.name) == 0 {
-		return "state:" + s.token
-	}
-	return "state-" + s.name + ":" + s.token
-}
-
-func (s *stateManager) createCookieKey() string {
-	if len(s.name) == 0 {
-		return cookieName.State
-	}
-	return cookieName.State + "-" + s.name
-}
-
-func (s *stateManager) createState(data []byte) state {
-	return state{
-		Exist:     true,
-		Lang:      s.control.Request().Lang(),
-		Ip:        s.control.Request().Ip(),
-		UserAgent: s.control.Request().UserAgent(),
-		Data:      data,
-	}
+	s.cache.MustGet(stateCacheKey+":"+s.token, s)
 }

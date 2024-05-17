@@ -1,196 +1,123 @@
 package cp
 
 import (
-	"net/http"
+	"encoding/json"
 	"reflect"
-	"slices"
 	"strings"
-
-	"github.com/creamsensation/cp/internal/constant/componentState"
-	"github.com/creamsensation/cp/internal/constant/queryKey"
-	"github.com/creamsensation/cp/internal/querystring"
-	"github.com/creamsensation/cp/internal/result"
-	"github.com/creamsensation/cp/internal/util"
+	
 	"github.com/creamsensation/gox"
 )
 
-type Component interface {
-	Control
-	Main() Control
-}
-
-type component interface {
-	Component
-	Model()
+type MandatoryComponent interface {
+	gox.Node
 	Name() string
-	Node() gox.Node
+	Mount()
 }
 
-type componentLifecycle struct {
-	control *control
-	cv      reflect.Value
-	ct      reflect.Type
-	name    string
+type Component struct {
+	Ctx `json:"-"`
 }
 
-const (
-	componentMethodModel = "Model"
-	componentMethodName  = "Name"
-	componentMethodNode  = "Node"
-)
+type component struct {
+	ct     MandatoryComponent
+	ctx    *ctx
+	v      reflect.Value
+	t      reflect.Type
+	route  *Route
+	action string
+}
 
-const (
-	componentFieldStateTag = "state"
-	componentFieldStateUse = "true"
-)
+type componentCtx struct {
+	name string
+}
 
 var (
-	componentMethods              = []string{componentMethodModel, componentMethodName, componentMethodNode}
-	componentControlInterfaceName = util.GetInterfaceName[Component]()
+	componentType = reflect.TypeOf(Component{})
 )
 
-func createComponentControl(c *control, ct component) *control {
-	cc := new(control)
-	*cc = *c
-	cc.component = ct
-	cc.main = c
-	cc.flash = &flashMessenger{control: cc, name: createPrefixedComponentName(cc)}
-	cc.state = createState(cc)
-	return cc
+func createComponent(ct MandatoryComponent, ctx *ctx, route *Route, action string) *component {
+	c := &component{
+		ct:     ct,
+		ctx:    ctx,
+		t:      reflect.TypeOf(ct),
+		v:      reflect.ValueOf(ct),
+		route:  route,
+		action: action,
+	}
+	return c
 }
 
-func createComponentLifecycle(c *control) *componentLifecycle {
-	ref := reflect.ValueOf(c.component)
-	if ref.Type().Kind() != reflect.Ptr {
-		return nil
-	}
-	return &componentLifecycle{
-		control: c,
-		cv:      ref,
-		ct:      ref.Elem().Type(),
-		name:    createPrefixedComponentName(c),
-	}
+func (c *component) render() gox.Node {
+	c.mustGet()
+	c.injectContext()
+	c.ct.Mount()
+	c.callAction()
+	return c.ct.Node()
 }
 
-func (l *componentLifecycle) run() *componentLifecycle {
-	cfg := l.control.Config().Component
-	useCacheState := cfg.State == componentState.Cache
-	useQueryState := cfg.State == componentState.Query
-	isAction := l.control.Request().Is().Action()
-	if useCacheState {
-		l.loadFromCache()
-	}
-	l.injectDeps()
-	if isAction && useQueryState {
-		l.prepareFromRequest(l.control.request)
-	}
-	l.control.component.Model()
-	if isAction {
-		l.callAction()
-		if useCacheState {
-			l.storeToCache()
-		}
-	}
-	return l
-}
-
-func (l *componentLifecycle) node() gox.Node {
-	return l.control.component.Node()
-}
-
-func (l *componentLifecycle) prepareFromRequest(r *http.Request) *componentLifecycle {
-	querystring.New(l.control.component).
-		Request(r).
-		IgnoreInterface(componentControlInterfaceName).
-		Decode()
-	return l
-}
-
-func (l *componentLifecycle) injectDeps() *componentLifecycle {
-	controlRef := reflect.ValueOf(l.control)
-	for i := 0; i < l.cv.Elem().NumField(); i++ {
-		field := l.cv.Elem().Field(i)
-		if field.Type().String() == componentControlInterfaceName {
-			field.Set(controlRef)
-			continue
-		}
-		if field.Type().Kind() != reflect.Interface && field.Type().Kind() != reflect.Struct {
-			continue
-		}
-		dep := provide[any](l.control, field.Type(), field.Type().String())
-		if dep == nil {
-			continue
-		}
-		field.Set(reflect.ValueOf(dep))
-	}
-	return l
-}
-
-func (l *componentLifecycle) callAction() {
-	action := l.control.Request().Query(queryKey.Action)
-	cn := action[:strings.LastIndex(action, linkLevelDivider)]
-	if cn != l.name {
+func (c *component) callAction() {
+	action := c.action
+	if len(action) == 0 {
 		return
 	}
-	an := action[strings.LastIndex(action, linkLevelDivider)+1:]
-	if slices.Contains(componentMethods, an) {
+	parts := strings.Split(action, namePrefixDivider)
+	if len(parts) < 3 {
 		return
 	}
-	method := l.cv.MethodByName(an)
+	n := len(parts)
+	compName := parts[n-2]
+	methodName := parts[n-1]
+	if compName != c.ct.Name() {
+		return
+	}
+	method := c.v.MethodByName(methodName)
 	if !method.IsValid() {
 		return
 	}
 	methodResult := method.Call([]reflect.Value{})
+	c.save()
 	if len(methodResult) == 0 {
 		return
 	}
-	if methodResult[0].Interface() == nil {
+	*c.ctx.write = false
+	switch r := methodResult[0].Interface().(type) {
+	case error:
+		c.ctx.err = r
+	}
+}
+
+func (c *component) injectContext() {
+	compField := c.v.Elem().FieldByName(componentType.Name())
+	if !compField.IsValid() {
 		return
 	}
-	l.control.main.result = methodResult[0].Interface().(result.Result)
+	compCtx := *c.ctx
+	compCtx.component = &componentCtx{
+		name: c.ct.Name(),
+	}
+	compField.Set(reflect.ValueOf(Component{Ctx: &compCtx}))
 }
 
-func (l *componentLifecycle) loadFromCache() {
-	r := reflect.New(l.cv.Elem().Type())
-	l.control.State().Get(r.Interface())
-	for i := 0; i < l.cv.Elem().NumField(); i++ {
-		field := r.Elem().Field(i)
-		fieldName := r.Elem().Type().Field(i).Name
-		if field.IsZero() || field.Type().String() == componentControlInterfaceName {
-			continue
-		}
-		fieldStruct, ok := r.Elem().Type().FieldByName(fieldName)
-		if ok && fieldStruct.Tag.Get(componentFieldStateTag) != componentFieldStateTag {
-			continue
-		}
-		l.cv.Elem().FieldByName(fieldName).Set(field)
+func (c *component) get() error {
+	ct, ok := c.ctx.state.Components[c.route.Name+namePrefixDivider+c.ct.Name()]
+	if !ok {
+		return nil
+	}
+	bytes, err := json.Marshal(ct)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, &c.ct)
+}
+
+func (c *component) mustGet() {
+	err := c.get()
+	if err != nil {
+		panic(err)
 	}
 }
 
-func (l *componentLifecycle) storeToCache() {
-	c := reflect.New(l.cv.Elem().Type())
-	for i := 0; i < l.cv.Elem().NumField(); i++ {
-		field := l.cv.Elem().Field(i)
-		fieldName := l.cv.Elem().Type().Field(i).Name
-		if field.Type().String() == componentControlInterfaceName {
-			continue
-		}
-		fieldStruct, ok := c.Elem().Type().FieldByName(fieldName)
-		if ok && fieldStruct.Tag.Get(componentFieldStateTag) != componentFieldStateTag {
-			continue
-		}
-		c.Elem().FieldByName(fieldName).Set(field)
-	}
-	l.control.State().Set(c.Elem().Interface())
-}
-
-func createPrefixedComponentName(c *control) string {
-	name := c.component.Name()
-	if len(c.route.Controller) > 0 {
-		name = c.route.Controller + linkLevelDivider + name
-	}
-	if len(c.route.Module) > 0 {
-		name = c.route.Module + linkLevelDivider + name
-	}
-	return name
+func (c *component) save() {
+	c.ctx.state.Components[c.route.Name+namePrefixDivider+c.ct.Name()] = c.ct
+	c.ctx.state.mustSave()
 }

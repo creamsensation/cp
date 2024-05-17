@@ -2,113 +2,161 @@ package cp
 
 import (
 	"net/http"
+	"net/url"
 	
-	"github.com/creamsensation/cp/internal/constant/cookieName"
-	"github.com/creamsensation/cp/internal/constant/header"
-	"github.com/creamsensation/cp/internal/constant/requestVar"
-	"github.com/creamsensation/cp/internal/requester"
+	"github.com/creamsensation/hx"
+	
+	"github.com/creamsensation/util/constant/header"
 )
 
 type Request interface {
 	ContentType() string
-	Form() requester.Form
+	Form() url.Values
 	Header() http.Header
 	Host() string
 	Ip() string
-	Is() requester.Is
-	Lang() string
+	Is() RequestIs
 	Method() string
+	Name() string
+	Origin() string
 	Path() string
+	PathValue(key string, defaultValue ...string) string
+	QueryParam(key string, defaultValue ...string) string
 	Protocol() string
-	Query(key string, defaultValue ...string) string
 	Raw() *http.Request
-	Route() string
 	UserAgent() string
-	Var(key string, defaultValue ...string) string
+}
+
+type RequestIs interface {
+	Get() bool
+	Post() bool
+	Put() bool
+	Patch() bool
+	Delete() bool
+	Action() bool
+	Hx() bool
+	Options() bool
+	Head() bool
+	Connect() bool
+	Trace() bool
 }
 
 type request struct {
-	*control
+	r     *http.Request
+	route *Route
 }
 
 func (r request) ContentType() string {
-	return r.request.Header.Get(header.ContentType)
+	return r.r.Header.Get(header.ContentType)
 }
 
-func (r request) Form() requester.Form {
-	return requester.CreateForm(r.request)
+func (r request) Form() url.Values {
+	return r.r.Form
 }
 
 func (r request) Header() http.Header {
-	return r.request.Header
+	return r.r.Header
 }
 
 func (r request) Host() string {
-	return r.Protocol() + "://" + r.request.Host
+	return r.Protocol() + "://" + r.r.Host
 }
 
 func (r request) Ip() string {
-	ip := r.request.Header.Get(header.Ip)
-	if len(ip) == 0 {
-		return "localhost"
-	}
-	return ip
+	return r.r.Header.Get("X-Forwarded-For")
 }
 
-func (r request) Is() requester.Is {
-	return requester.CreateIs(r.request, r.core.router.localizedPathMatcher)
-}
-
-func (r request) Lang() string {
-	var lc string
-	if r.config.Router.Localized {
-		lc = Var[string](r.control, requestVar.Lang)
-	}
-	if len(lc) == 0 {
-		return r.Cookie().Get(cookieName.Lang)
-	}
-	return lc
+func (r request) Is() RequestIs {
+	return r
 }
 
 func (r request) Method() string {
-	return r.request.Method
+	return r.r.Method
+}
+
+func (r request) Name() string {
+	return r.route.Name
+}
+
+func (r request) Origin() string {
+	return r.r.Header.Get(header.Origin)
 }
 
 func (r request) Path() string {
-	return r.request.URL.Path
+	return r.r.URL.Path
+}
+
+func (r request) PathValue(key string, defaultValue ...string) string {
+	value := r.r.PathValue(key)
+	if len(value) == 0 && len(defaultValue) > 0 {
+		return defaultValue[0]
+	}
+	return value
+}
+
+func (r request) QueryParam(key string, defaultValue ...string) string {
+	value := r.r.URL.Query().Get(key)
+	if len(value) == 0 && len(defaultValue) > 0 {
+		return defaultValue[0]
+	}
+	return value
 }
 
 func (r request) Protocol() string {
-	if r.request.TLS == nil {
+	if r.r.TLS == nil {
 		return "http"
 	}
 	return "https"
 }
 
-func (r request) Query(key string, defaultValue ...string) string {
-	q := Query[string](r.control, key)
-	if len(q) == 0 && len(defaultValue) > 0 {
-		return defaultValue[0]
-	}
-	return q
-}
-
 func (r request) Raw() *http.Request {
-	return r.request
-}
-
-func (r request) Route() string {
-	return r.control.route.Name
+	return r.r
 }
 
 func (r request) UserAgent() string {
-	return r.request.Header.Get(header.UserAgent)
+	return r.r.Header.Get(header.UserAgent)
 }
 
-func (r request) Var(key string, defaultValue ...string) string {
-	v := Var[string](r.control, key)
-	if len(v) == 0 && len(defaultValue) > 0 {
-		return defaultValue[0]
-	}
-	return v
+func (r request) Get() bool {
+	return r.r.Method == http.MethodGet
+}
+
+func (r request) Post() bool {
+	return r.r.Method == http.MethodPost
+}
+
+func (r request) Put() bool {
+	return r.r.Method == http.MethodPut
+}
+
+func (r request) Patch() bool {
+	return r.r.Method == http.MethodPatch
+}
+
+func (r request) Delete() bool {
+	return r.r.Method == http.MethodDelete
+}
+
+func (r request) Action() bool {
+	return len(r.r.URL.Query().Get(Action)) > 0
+}
+
+func (r request) Hx() bool {
+	return r.r.Header.Get(hx.RequestHeaderRequest) == "true"
+}
+
+func (r request) Options() bool {
+	return r.r.Method == http.MethodOptions
+}
+
+func (r request) Head() bool {
+	return r.r.Method == http.MethodHead
+}
+
+func (r request) Connect() bool {
+	return r.r.Method == http.MethodConnect
+}
+
+func (r request) Trace() bool {
+	return r.r.Method == http.MethodTrace
 }

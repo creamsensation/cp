@@ -1,273 +1,227 @@
 package cp
 
 import (
-	"fmt"
+	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
-
-	"github.com/creamsensation/cp/internal/config"
-	"github.com/creamsensation/cp/internal/constant/requestVar"
-	"github.com/creamsensation/cp/internal/firewall"
-	"github.com/creamsensation/cp/internal/handler"
-	"github.com/creamsensation/cp/internal/route"
+	
+	"github.com/creamsensation/config"
+	"github.com/creamsensation/firewall"
 )
 
-type router struct {
-	builders             []*route.Builder
-	core                 *core
-	config               config.Config
-	defaultLanguage      string
-	firewalls            map[string]*firewall.Firewall
-	localized            bool
-	localizedRoutes      map[string][]route.Route
-	localizedPathMatcher *regexp.Regexp
-	middlewares          []handler.Fn
-	routes               []route.Route
+type Router interface {
+	Static(path, dir string) Router
+	Route(path any, handler Handler, config ...RouteConfig) Router
+	Group(path any, name ...string) Router
 }
 
-func createRouter(core *core) *router {
-	r := &router{
-		builders:        make([]*route.Builder, 0),
-		core:            core,
-		config:          core.config,
-		firewalls:       make(map[string]*firewall.Firewall),
-		localized:       core.config.Router.Localized,
-		localizedRoutes: make(map[string][]route.Route),
-		middlewares:     make([]handler.Fn, 0),
-	}
-	r.onInit()
+type router struct {
+	core        *core
+	config      config.Config
+	mux         *http.ServeMux
+	prefix      config.Prefix
+	middlewares []Handler
+	assets      *assets
+	routes      *[]*Route
+}
+
+const (
+	paramRegex = `[0-9a-zA-Z]+`
+)
+
+func (r *router) Static(path, dir string) Router {
+	r.mux.Handle(http.MethodGet+" "+path, http.StripPrefix(path, http.FileServer(http.Dir(dir))))
 	return r
 }
 
-func (r *router) onInit() {
-	r.prepareFirewalls()
-	r.prepareMiddlewares()
-	r.prepareDefaultLanguage()
-	r.prepareLocalizedPathMatcher()
-}
-
-func (r *router) createHandler() *serverHandler {
-	r.prepareRoutes()
-	return createServerHandler(r.core, r.routes)
-}
-
-func (r *router) prepareRoutes() {
-	if r.localized {
-		r.localizedRoutes = prepareLocalizedRoutes(r.builders, r.firewalls)
-	}
-	r.routes = prepareRoutes(r.builders, r.firewalls)
-}
-
-func (r *router) prepareFirewalls() {
-	if len(r.config.Security.Firewall) == 0 {
-		return
-	}
-	for name, item := range r.config.Security.Firewall {
-		matchers := make([]*regexp.Regexp, len(item.Patterns))
-		for i, p := range item.Patterns {
-			matchers[i] = regexp.MustCompile(p)
+func (r *router) Route(path any, fn Handler, config ...RouteConfig) Router {
+	switch v := path.(type) {
+	case string:
+		if r.config.Localization.Path {
+			for _, item := range r.config.Localization.Languages {
+				r.createRoute(v, fn, item.Code, config...)
+			}
 		}
-		r.firewalls[name] = &firewall.Firewall{
-			Enabled:       item.Enabled,
-			Invert:        item.Invert,
-			Modules:       item.Modules,
-			Controllers:   item.Controllers,
-			Routes:        item.Routes,
-			Patterns:      item.Patterns,
-			Matchers:      matchers,
-			RedirectRoute: item.RedirectRoute,
-			Roles:         item.Roles,
-			Secret:        item.Secret,
+		if !r.config.Localization.Path {
+			r.createRoute(v, fn, "", config...)
+		}
+	case map[string]string:
+		for l, p := range v {
+			r.createRoute(p, fn, l, config...)
 		}
 	}
+	return r
 }
 
-func (r *router) prepareDefaultLanguage() {
-	if !r.localized {
-		return
+func (r *router) Group(path any, name ...string) Router {
+	var routerName string
+	if len(name) > 0 {
+		routerName = name[0]
 	}
-	for code, l := range r.config.Languages {
-		if l.Enabled && l.Default {
-			r.defaultLanguage = code
-			break
-		}
-	}
-}
-
-func (r *router) prepareLocalizedPathMatcher() {
-	if !r.localized {
-		return
-	}
-	languages := make([]string, 0)
-	for code, l := range r.config.Languages {
-		if !l.Enabled {
-			continue
-		}
-		languages = append(languages, code)
-	}
-	isPrefix := len(r.config.Router.PathPrefix) > 0
-	if !isPrefix || (isPrefix && !r.config.Router.PreferPrefix) {
-		r.localizedPathMatcher = regexp.MustCompile(fmt.Sprintf(`^/(%s)\b`, strings.Join(languages, "|")))
-		return
-	}
-	if isPrefix && r.config.Router.PreferPrefix {
-		r.localizedPathMatcher = regexp.MustCompile(
-			fmt.Sprintf(
-				`^/%s/(%s)\b`, r.config.Router.PathPrefix, strings.Join(languages, "|"),
-			),
-		)
+	return &router{
+		core:   r.core,
+		config: r.config,
+		mux:    r.mux,
+		prefix: config.Prefix{
+			Path: r.mergePrefixPath(r.prefix.Path, path),
+			Name: r.prefix.Name + routerName,
+		},
+		middlewares: r.middlewares,
+		assets:      r.assets,
+		routes:      r.routes,
 	}
 }
 
-func (r *router) prepareMiddlewares() {
-	if r.config.Security.Csrf.Enabled {
-		r.middlewares = append(
-			r.middlewares,
-			createCsrfMiddleware(),
-		)
-	}
-	if r.config.Security.RateLimit.Enabled {
-		r.middlewares = append(
-			r.middlewares,
-			createRateLimitMiddleware(r.config.Security),
-		)
-	}
-	r.middlewares = append(
-		r.middlewares,
-		createSessionMiddleware(),
+func (r *router) createGetWildcardRoute() {
+	method := http.MethodGet
+	path := "/{path...}"
+	r.mux.HandleFunc(
+		r.createRoutePattern(method, path),
+		r.createHandler(
+			method, path, "wildcard", func(c Ctx) error {
+				c.Response().Status(http.StatusNotFound)
+				return r.core.errorHandler(c)
+			},
+		),
 	)
 }
 
-func prepareRoutes(items []*route.Builder, firewalls map[string]*firewall.Firewall) []route.Route {
-	result := make([]route.Route, 0)
-	for i, item := range items {
-		if len(item.Controller) > 0 {
-			items[i].Name = item.Controller + linkLevelDivider + items[i].Name
-		}
-		if len(item.Module) > 0 {
-			items[i].Name = item.Module + linkLevelDivider + items[i].Name
+func (r *router) createRoute(path string, fn Handler, lang string, config ...RouteConfig) {
+	var name string
+	methods := make([]string, 0)
+	for _, cfg := range config {
+		switch cfg.Type {
+		case routeMethod:
+			methods = cfg.Value.([]string)
+		case routeName:
+			name = cfg.Value.(string)
 		}
 	}
-	for i, item := range items {
-		if !item.Ok {
+	if len(methods) == 0 {
+		methods = append(methods, httpMethods...)
+	}
+	if r.prefix.Path != nil {
+		switch v := r.prefix.Path.(type) {
+		case string:
+			path = r.mustJoinPath(v, path)
+		case map[string]string:
+			lp, ok := v[lang]
+			if ok {
+				path = r.mustJoinPath(lp, path)
+			}
+		}
+	}
+	path = r.prefixPathWithLangIfEnabled(path, lang)
+	if len(r.prefix.Name) > 0 {
+		name = r.prefix.Name + namePrefixDivider + name
+	}
+	*r.routes = append(
+		*r.routes, &Route{
+			Lang:      lang,
+			Path:      path,
+			Name:      name,
+			Methods:   methods,
+			Matcher:   r.createMatcher(path),
+			Firewalls: r.createFirewalls(path, name),
+		},
+	)
+	for _, method := range methods {
+		r.mux.HandleFunc(
+			r.createRoutePattern(method, path),
+			r.createHandler(method, path, name, fn),
+		)
+	}
+}
+
+func (r *router) createFirewalls(path, name string) []firewall.Firewall {
+	result := make([]firewall.Firewall, 0)
+	for _, f := range r.config.Security.Firewalls {
+		if f.Match(path) {
+			result = append(result, f)
 			continue
 		}
-		item.Route.Firewalls = make(map[string]*firewall.Route)
-		for firewallName, f := range firewalls {
-			var exist bool
-			for _, m := range f.Modules {
-				if item.Module == m {
-					items[i].Firewalls[firewallName] = createRouteFirewall(f)
-					exist = true
-				}
-			}
-			if exist {
-				continue
-			}
-			for _, r := range f.Controllers {
-				if item.Controller == r {
-					items[i].Firewalls[firewallName] = createRouteFirewall(f)
-					exist = true
-				}
-			}
-			if exist {
-				continue
-			}
-			for _, name := range f.Routes {
-				if item.Name == name {
-					items[i].Firewalls[firewallName] = createRouteFirewall(f)
-					exist = true
-				}
-			}
-			if exist {
-				continue
-			}
-			for _, m := range f.Matchers {
-				if m.MatchString(item.Route.Path) {
-					items[i].Firewalls[firewallName] = createRouteFirewall(f)
-				}
-			}
+		if f.MatchPath(path) {
+			result = append(result, f)
+			continue
 		}
-		result = append(result, item.Route)
-	}
-	return result
-}
-
-func prepareLocalizedRoutes(items []*route.Builder, firewalls map[string]*firewall.Firewall) map[string][]route.Route {
-	result := make(map[string][]route.Route)
-	for langCode, b := range items {
-		for i, item := range b.LocalizedRoute {
-			if len(item.Controller) > 0 {
-				items[langCode].LocalizedRoute[i].Name = item.Controller + linkLevelDivider + items[langCode].LocalizedRoute[i].Name
-			}
-			if len(item.Module) > 0 {
-				items[langCode].LocalizedRoute[i].Name = item.Module + linkLevelDivider + items[langCode].LocalizedRoute[i].Name
-			}
-		}
-	}
-	for _, item := range items {
-		for langCode, localizedRoute := range item.LocalizedRoute {
-			if !localizedRoute.Ok {
-				continue
-			}
-			localizedRoute.Firewalls = make(map[string]*firewall.Route)
-			for firewallName, f := range firewalls {
-				var exist bool
-				for _, m := range f.Modules {
-					if item.LocalizedRoute[langCode].Module == m {
-						item.LocalizedRoute[langCode].Firewalls[firewallName] = createRouteFirewall(f)
-						exist = true
-					}
-				}
-				if exist {
-					continue
-				}
-				for _, r := range f.Controllers {
-					if item.LocalizedRoute[langCode].Controller == r {
-						item.LocalizedRoute[langCode].Firewalls[firewallName] = createRouteFirewall(f)
-						exist = true
-					}
-				}
-				if exist {
-					continue
-				}
-				for _, name := range f.Routes {
-					if item.LocalizedRoute[langCode].Name == name {
-						item.LocalizedRoute[langCode].Firewalls[firewallName] = createRouteFirewall(f)
-						exist = true
-					}
-				}
-				if exist {
-					continue
-				}
-				for _, m := range f.Matchers {
-					if m.MatchString(
-						strings.Replace(
-							item.LocalizedRoute[langCode].Route.Path,
-							fmt.Sprintf(`{%s:%s}`, requestVar.Lang, langCode),
-							langCode,
-							1,
-						),
-					) {
-						item.LocalizedRoute[langCode].Firewalls[firewallName] = createRouteFirewall(f)
-					}
-				}
-			}
-			if _, ok := result[langCode]; !ok {
-				result[langCode] = make([]route.Route, 0)
-			}
-			result[langCode] = append(result[langCode], localizedRoute.Route)
+		if f.MatchGroup(name) {
+			result = append(result, f)
+			continue
 		}
 	}
 	return result
 }
 
-func createRouteFirewall(f *firewall.Firewall) *firewall.Route {
-	return &firewall.Route{
-		Enabled:       f.Enabled,
-		Invert:        f.Invert,
-		RedirectRoute: f.RedirectRoute,
-		Roles:         f.Roles,
-		Secret:        f.Secret,
+func (r *router) createRoutePattern(method, path string) string {
+	return method + " " + r.formatPatternPath(path)
+}
+
+func (r *router) createMatcher(path string) *regexp.Regexp {
+	parts := strings.Split(path, "/")
+	res := make([]string, len(parts))
+	for i, part := range parts {
+		if strings.HasPrefix(part, "{") && strings.HasSuffix(part, "}") {
+			res[i] = paramRegex
+			continue
+		}
+		res[i] = part
 	}
+	return regexp.MustCompile(strings.Join(res, "/"))
+}
+
+func (r *router) formatPatternPath(path string) string {
+	if strings.Contains(path, "...") {
+		return path
+	}
+	if !strings.HasSuffix(path, "/") {
+		return path + "/{$}"
+	}
+	return path + "{$}"
+}
+
+func (r *router) mustJoinPath(basePath string, path string) string {
+	if strings.Contains(path, "...") {
+		return strings.TrimSuffix(basePath, "/") + "/" + strings.TrimPrefix(path, "/")
+	}
+	p, err := url.JoinPath(basePath, path)
+	if err != nil {
+		panic(err)
+	}
+	return p
+}
+
+func (r *router) mergePrefixPath(prefixPath any, path any) any {
+	switch pp := prefixPath.(type) {
+	case string:
+		switch p := path.(type) {
+		case string:
+			return pp + p
+		}
+	case map[string]string:
+		switch p := path.(type) {
+		case map[string]string:
+			for l, item := range pp {
+				p[l] = item + p[l]
+			}
+			return p
+		}
+	}
+	return path
+}
+
+func (r *router) prefixPathWithLangIfEnabled(path, lang string) string {
+	if r.config.Localization.Path && !strings.HasSuffix(path, "/"+lang+"/") {
+		return r.mustJoinPath("/"+lang+"/", path)
+	}
+	return path
+}
+
+func (r *router) createHandler(method, path, name string, fn Handler) func(http.ResponseWriter, *http.Request) {
+	return handler{
+		core:   r.core,
+		method: method,
+		path:   path,
+		name:   name,
+	}.create(fn)
 }
