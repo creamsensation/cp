@@ -3,23 +3,24 @@ module github.com/creamsensation/cp
 go 1.22
 
 require (
-	github.com/creamsensation/auth v0.1.2
-	github.com/creamsensation/cache v0.1.2
-	github.com/creamsensation/config v0.1.0
+	github.com/creamsensation/auth v0.1.3
+	github.com/creamsensation/cache v0.1.3
+	github.com/creamsensation/config v0.1.1
 	github.com/creamsensation/cookie v0.1.1
 	github.com/creamsensation/csrf v0.1.0
 	github.com/creamsensation/exporter v0.1.0
 	github.com/creamsensation/filesystem v0.1.0
 	github.com/creamsensation/firewall v0.1.2
-	github.com/creamsensation/form v0.1.3
+	github.com/creamsensation/form v0.1.4
 	github.com/creamsensation/gox v0.3.3
 	github.com/creamsensation/hx v0.1.0
 	github.com/creamsensation/mailer v0.1.0
 	github.com/creamsensation/parser v0.1.1
 	github.com/creamsensation/quirk v0.1.9
 	github.com/creamsensation/sender v0.1.0
-	github.com/creamsensation/util v0.1.0
+	github.com/creamsensation/util v0.1.1
 	github.com/dchest/uniuri v1.2.0
+	github.com/stretchr/testify v1.9.0
 )
 
 require (
@@ -28,7 +29,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/creamsensation/env v0.1.0 // indirect
 	github.com/creamsensation/translator v0.1.1 // indirect
-	github.com/creamsensation/validator v0.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -52,7 +52,6 @@ require (
 	github.com/richardlehane/msoleps v1.0.3 // indirect
 	github.com/rs/xid v1.5.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/xuri/efp v0.0.0-20231025114914-d1ff6096ae53 // indirect
 	github.com/xuri/excelize/v2 v2.8.1 // indirect
 	github.com/xuri/nfp v0.0.0-20230919160717-d98342af3f05 // indirect
