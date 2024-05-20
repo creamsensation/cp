@@ -5,7 +5,7 @@ go 1.22
 require (
 	github.com/creamsensation/auth v0.1.3
 	github.com/creamsensation/cache v0.1.3
-	github.com/creamsensation/config v0.1.1
+	github.com/creamsensation/config v0.1.2
 	github.com/creamsensation/cookie v0.1.1
 	github.com/creamsensation/csrf v0.1.0
 	github.com/creamsensation/exporter v0.1.0
@@ -17,7 +17,7 @@ require (
 	github.com/creamsensation/mailer v0.1.0
 	github.com/creamsensation/parser v0.1.2
 	github.com/creamsensation/quirk v0.1.9
-	github.com/creamsensation/sender v0.1.1
+	github.com/creamsensation/sender v0.1.2
 	github.com/creamsensation/util v0.1.1
 	github.com/dchest/uniuri v1.2.0
 	github.com/stretchr/testify v1.9.0
