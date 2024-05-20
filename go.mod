@@ -10,14 +10,14 @@ require (
 	github.com/creamsensation/csrf v0.1.0
 	github.com/creamsensation/exporter v0.1.0
 	github.com/creamsensation/filesystem v0.1.0
-	github.com/creamsensation/firewall v0.1.2
+	github.com/creamsensation/firewall v0.1.3
 	github.com/creamsensation/form v0.1.4
 	github.com/creamsensation/gox v0.3.3
 	github.com/creamsensation/hx v0.1.0
 	github.com/creamsensation/mailer v0.1.0
-	github.com/creamsensation/parser v0.1.1
+	github.com/creamsensation/parser v0.1.2
 	github.com/creamsensation/quirk v0.1.9
-	github.com/creamsensation/sender v0.1.0
+	github.com/creamsensation/sender v0.1.1
 	github.com/creamsensation/util v0.1.1
 	github.com/dchest/uniuri v1.2.0
 	github.com/stretchr/testify v1.9.0
