@@ -1,4 +1,4 @@
-package db
+package quirkutil
 
 import (
 	"fmt"

@@ -1,4 +1,4 @@
-package db
+package quirkutil
 
 const (
 	Offset   = "offset"
