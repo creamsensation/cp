@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	
+
 	"github.com/creamsensation/gox"
-	
+
 	"github.com/creamsensation/csrf"
 	"github.com/creamsensation/form"
 )
@@ -73,9 +73,6 @@ func (g *generator) Csrf(name string) gox.Node {
 }
 
 func (g *generator) Link(name string, args ...Map) string {
-	if !strings.Contains(name, namePrefixDivider) {
-		name = g.route.Name + namePrefixDivider + name
-	}
 	l := g.Lang().Current()
 	for _, r := range *g.routes {
 		if g.config.Localization.Enabled && !g.config.Localization.Path {

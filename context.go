@@ -3,10 +3,11 @@ package cp
 import (
 	"context"
 	"net/http"
+	"strings"
 	"sync"
-	
+
 	"github.com/creamsensation/filesystem"
-	
+
 	"github.com/creamsensation/auth"
 	"github.com/creamsensation/cache"
 	"github.com/creamsensation/config"
@@ -217,10 +218,23 @@ func (c *ctx) Translate(key string, args ...map[string]any) string {
 func (c *ctx) createCookiePathBasedOnRouterPrefix() string {
 	switch p := c.config.Router.Prefix.Path.(type) {
 	case string:
+		if !strings.HasPrefix(p, "/") {
+			p = "/" + p
+		}
 		return p
 	case map[string]string:
-		return p[c.Lang().Current()]
+		if !c.Config().Localization.Enabled {
+			return "/"
+		}
+		lp, ok := p[c.Lang().Current()]
+		if !ok {
+			return "/"
+		}
+		if !strings.HasPrefix(lp, "/") {
+			lp = "/" + lp
+		}
+		return lp
 	default:
-		return ""
+		return "/"
 	}
 }

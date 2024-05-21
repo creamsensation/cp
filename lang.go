@@ -3,7 +3,7 @@ package cp
 import (
 	"strings"
 	"time"
-	
+
 	"github.com/creamsensation/config"
 	"github.com/creamsensation/cookie"
 )
@@ -35,10 +35,10 @@ func createLang(config config.Config, req Request, cookie cookie.Cookie) *lang {
 		req:    req,
 		cookie: cookie,
 	}
-	if !config.Localization.Path {
+	if config.Localization.Enabled && !config.Localization.Path {
 		l.current = cookie.Get(langCookieKey)
 	}
-	if config.Localization.Path {
+	if config.Localization.Enabled && config.Localization.Path {
 		l.current = l.parseLangFromUrl()
 	}
 	return l
