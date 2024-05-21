@@ -15,7 +15,7 @@ require (
 	github.com/creamsensation/gox v0.3.3
 	github.com/creamsensation/hx v0.1.0
 	github.com/creamsensation/mailer v0.1.0
-	github.com/creamsensation/parser v0.1.2
+	github.com/creamsensation/parser v0.1.3
 	github.com/creamsensation/quirk v0.1.9
 	github.com/creamsensation/sender v0.1.2
 	github.com/creamsensation/util v0.1.1
