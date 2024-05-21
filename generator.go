@@ -13,7 +13,7 @@ import (
 
 type Generator interface {
 	Assets() gox.Node
-	Action(name string) string
+	Action(name string, args ...Map) string
 	Csrf(name string) gox.Node
 	Link(name string, args ...Map) string
 	PublicUrl(path string) string
@@ -43,13 +43,18 @@ func (g *generator) Assets() gox.Node {
 	)
 }
 
-func (g *generator) Action(name string) string {
+func (g *generator) Action(name string, args ...Map) string {
 	if g.component == nil {
 		return ""
 	}
 	qpm := Map{Action: g.route.Name + namePrefixDivider + g.component.name + namePrefixDivider + name}
 	for k, vals := range g.Request().Raw().URL.Query() {
 		for _, v := range vals {
+			qpm[k] = v
+		}
+	}
+	if len(args) > 0 {
+		for k, v := range args[0] {
 			qpm[k] = v
 		}
 	}
@@ -86,14 +91,6 @@ func (g *generator) Link(name string, args ...Map) string {
 	return ""
 }
 
-func (g *generator) PublicUrl(path string) string {
-	r, err := url.JoinPath(g.config.App.Public, path)
-	if err != nil {
-		return path
-	}
-	return r
-}
-
 func (g *generator) Query(args Map) string {
 	if len(args) == 0 {
 		return ""
@@ -106,6 +103,14 @@ func (g *generator) Query(args Map) string {
 		result = append(result, fmt.Sprintf("%s=%v", k, v))
 	}
 	return "?" + strings.Join(result, "&")
+}
+
+func (g *generator) PublicUrl(path string) string {
+	r, err := url.JoinPath(g.config.App.Public, path)
+	if err != nil {
+		return path
+	}
+	return r
 }
 
 func (g *generator) SwitchLang(langCode string) string {
