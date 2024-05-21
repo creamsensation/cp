@@ -2,6 +2,7 @@ package cp
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	
 	"github.com/creamsensation/gox"
@@ -15,6 +16,7 @@ type Generator interface {
 	Action(name string) string
 	Csrf(name string) gox.Node
 	Link(name string, args ...Map) string
+	PublicUrl(path string) string
 	Query(args Map) string
 	SwitchLang(langCode string) string
 }
@@ -82,6 +84,14 @@ func (g *generator) Link(name string, args ...Map) string {
 		}
 	}
 	return ""
+}
+
+func (g *generator) PublicUrl(path string) string {
+	r, err := url.JoinPath(g.config.App.Public, path)
+	if err != nil {
+		return path
+	}
+	return r
 }
 
 func (g *generator) Query(args Map) string {
