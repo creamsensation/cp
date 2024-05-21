@@ -78,13 +78,16 @@ func (g *generator) Link(name string, args ...Map) string {
 	}
 	l := g.Lang().Current()
 	for _, r := range *g.routes {
-		if !g.config.Localization.Path {
+		if g.config.Localization.Enabled && !g.config.Localization.Path {
 			if r.Name == name {
 				return g.replacePathParamsWithArgs(r.Path, args...)
 			}
 			continue
 		}
-		if r.Name == name && r.Lang == l {
+		if g.config.Localization.Enabled && r.Name == name && r.Lang == l {
+			return g.replacePathParamsWithArgs(r.Path, args...)
+		}
+		if r.Name == name {
 			return g.replacePathParamsWithArgs(r.Path, args...)
 		}
 	}
