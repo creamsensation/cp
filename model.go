@@ -19,3 +19,10 @@ var (
 		http.MethodOptions, http.MethodHead, http.MethodConnect, http.MethodTrace,
 	}
 )
+
+func (m Map) Merge(mm Map) Map {
+	for k, v := range mm {
+		m[k] = v
+	}
+	return m
+}
